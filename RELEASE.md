@@ -3,7 +3,8 @@
 ## 概要
 
 タグ `v*` を push すると GitHub Actions が `Release` ビルドを実行し、`SR1CTRL-<tag>-win-x64.zip` を GitHub Release に自動添付します。
-ZIP には `SR1CTRL.exe` と依存する `*.dll` を含む publish 出力一式が入ります。
+
+ZIP には `SR1CTRL.exe` と依存する `*.dll` を含む publish 出力一式が入ります。`*.pdb` は ZIP へ含めません。
 
 ## 事前準備
 
@@ -32,4 +33,5 @@ git push origin v1.0.0
   - `dotnet restore SR1CTRL.slnx`
   - `dotnet build SR1CTRL.slnx -c Release`
   - `dotnet publish SR1CTRL/SR1CTRL.csproj -c Release -r win-x64`
+  - `publish/win-x64` から `*.pdb` を削除
   - 出力を ZIP 化して Release に添付
