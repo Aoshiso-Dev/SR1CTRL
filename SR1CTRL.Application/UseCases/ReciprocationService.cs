@@ -7,6 +7,7 @@ public sealed class ReciprocationService : IDisposable
 {
     private readonly ISerialConnection _serial;
     private readonly object _gate = new();
+    private readonly SemaphoreSlim _wakeUpSignal = new(0, 1);
 
     private AxisReciprocator? _lin;
     private AxisReciprocator? _rot;
@@ -36,6 +37,7 @@ public sealed class ReciprocationService : IDisposable
             {
                 var command = _lin.Reapply(DateTime.UtcNow);
                 _pendingLinearCommand = command;
+                SignalLoop();
             }
         }
     }
@@ -53,6 +55,7 @@ public sealed class ReciprocationService : IDisposable
             {
                 var command = _rot.Reapply(DateTime.UtcNow);
                 _pendingRotateCommand = command;
+                SignalLoop();
             }
         }
     }
@@ -135,6 +138,7 @@ public sealed class ReciprocationService : IDisposable
 
         cts?.Cancel();
         cts?.Dispose();
+        _wakeUpSignal.Dispose();
     }
 
     private async Task RunAsync(CancellationToken cancellationToken)
@@ -155,6 +159,7 @@ public sealed class ReciprocationService : IDisposable
             if (pendingLinear is not null || pendingRotate is not null)
             {
                 var pending = CombineCommands(pendingLinear, pendingRotate);
+                cancellationToken.ThrowIfCancellationRequested();
                 await _serial.SendLineAsync(pending, cancellationToken).ConfigureAwait(false);
                 continue;
             }
@@ -169,7 +174,7 @@ public sealed class ReciprocationService : IDisposable
 
             if (lin is null && rot is null)
             {
-                await Task.Delay(50, cancellationToken).ConfigureAwait(false);
+                await WaitForWakeOrDelayAsync(TimeSpan.FromMilliseconds(50), cancellationToken).ConfigureAwait(false);
                 continue;
             }
 
@@ -181,7 +186,7 @@ public sealed class ReciprocationService : IDisposable
             var delay = next - now;
             if (delay > TimeSpan.Zero)
             {
-                await Task.Delay(delay, cancellationToken).ConfigureAwait(false);
+                await WaitForWakeOrDelayAsync(delay, cancellationToken).ConfigureAwait(false);
             }
 
             now = DateTime.UtcNow;
@@ -206,7 +211,27 @@ public sealed class ReciprocationService : IDisposable
 
             var line = CombineCommands(linearCommand, rotateCommand);
 
+            cancellationToken.ThrowIfCancellationRequested();
             await _serial.SendLineAsync(line, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    private async Task WaitForWakeOrDelayAsync(TimeSpan delay, CancellationToken cancellationToken)
+    {
+        var delayTask = Task.Delay(delay, cancellationToken);
+        var wakeTask = _wakeUpSignal.WaitAsync(cancellationToken);
+        var completed = await Task.WhenAny(delayTask, wakeTask).ConfigureAwait(false);
+        await completed.ConfigureAwait(false);
+    }
+
+    private void SignalLoop()
+    {
+        try
+        {
+            _wakeUpSignal.Release();
+        }
+        catch (SemaphoreFullException)
+        {
         }
     }
 

@@ -59,6 +59,7 @@ public sealed class SerialTCodeConnection : ISerialConnection
         await _writeLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
+            cancellationToken.ThrowIfCancellationRequested();
             _serialPort.WriteLine(line);
         }
         finally

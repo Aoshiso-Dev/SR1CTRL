@@ -18,6 +18,8 @@ public partial class MainViewModel : ObservableObject
     private readonly IAppStateStore _appStateStore;
     private readonly ILogger<MainViewModel> _logger;
     private readonly SemaphoreSlim _operationLock = new(1, 1);
+    private readonly object _operationCtsGate = new();
+    private CancellationTokenSource? _activeOperationCts;
 
     public MainViewModel(
         IComPortProvider ports,
@@ -79,7 +81,7 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private async Task Connect()
     {
-        await RunExclusiveAsync(async () =>
+        await RunExclusiveAsync(async cancellationToken =>
         {
             if (IsConnected)
             {
@@ -97,11 +99,11 @@ public partial class MainViewModel : ObservableObject
             }
 
             SetStatus($"Connecting to {SelectedPort}...");
-            var state = await _deviceControl.ConnectAsync(SelectedPort, BaudRate, CancellationToken.None);
+            var state = await _deviceControl.ConnectAsync(SelectedPort, BaudRate, cancellationToken);
             SyncState(state);
 
             SetStatus("Connected. Reading device info...");
-            await QueryDeviceInfoCore();
+            await QueryDeviceInfoCore(cancellationToken);
 
             ApplyAll();
             SetStatus("Connected");
@@ -111,7 +113,7 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private async Task Disconnect()
     {
-        await RunExclusiveAsync(async () =>
+        await RunExclusiveAsync(async cancellationToken =>
         {
             if (!IsConnected)
             {
@@ -119,7 +121,7 @@ public partial class MainViewModel : ObservableObject
             }
 
             SetStatus("Disconnecting...");
-            var state = await _deviceControl.DisconnectAsync(CancellationToken.None);
+            var state = await _deviceControl.DisconnectAsync(cancellationToken);
             SyncState(state);
             SetStatus("Disconnected");
         });
@@ -134,7 +136,7 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private async Task Start()
     {
-        await RunExclusiveAsync(async () =>
+        await RunExclusiveAsync(async cancellationToken =>
         {
             if (!IsConnected || IsRunning)
             {
@@ -142,7 +144,7 @@ public partial class MainViewModel : ObservableObject
             }
 
             SetStatus("Starting...");
-            var state = await _deviceControl.StartAsync(CancellationToken.None);
+            var state = await _deviceControl.StartAsync(cancellationToken);
             SyncState(state);
             SetStatus("Running");
         });
@@ -151,7 +153,9 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private async Task Stop()
     {
-        await RunExclusiveAsync(async () =>
+        CancelActiveOperation();
+
+        await RunExclusiveAsync(async cancellationToken =>
         {
             if (!IsRunning)
             {
@@ -159,10 +163,10 @@ public partial class MainViewModel : ObservableObject
             }
 
             SetStatus("Stopping...");
-            var state = await _deviceControl.StopAsync(CancellationToken.None);
+            var state = await _deviceControl.StopAsync(cancellationToken);
             SyncState(state);
             SetStatus(IsConnected ? "Connected" : "Disconnected");
-        });
+        }, waitForTurn: true);
     }
 
     public async Task ToggleStartStopAsync()
@@ -299,14 +303,15 @@ public partial class MainViewModel : ObservableObject
         IsRunning = state.IsRunning;
     }
 
-    private async Task QueryDeviceInfoCore()
+    private async Task QueryDeviceInfoCore(CancellationToken cancellationToken)
     {
         if (!IsConnected)
         {
             return;
         }
 
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        cts.CancelAfter(TimeSpan.FromSeconds(3));
         var info = await _deviceControl.QueryDeviceInfoAsync(cts.Token);
 
         D0Text = info.D0;
@@ -315,18 +320,25 @@ public partial class MainViewModel : ObservableObject
         SetStatus("Device info updated");
     }
 
-    private async Task RunExclusiveAsync(Func<Task> action)
+    private async Task RunExclusiveAsync(Func<CancellationToken, Task> action, bool waitForTurn = false)
     {
-        if (!await _operationLock.WaitAsync(0))
+        if (waitForTurn)
+        {
+            await _operationLock.WaitAsync();
+        }
+        else if (!await _operationLock.WaitAsync(0))
         {
             SetStatus("Another operation is running...");
             return;
         }
 
+        using var cts = new CancellationTokenSource();
+        SetActiveOperationCancellation(cts);
+
         try
         {
             IsBusy = true;
-            await action();
+            await action(cts.Token);
             ErrorText = string.Empty;
         }
         catch (OperationCanceledException)
@@ -339,8 +351,49 @@ public partial class MainViewModel : ObservableObject
         }
         finally
         {
+            ClearActiveOperationCancellation(cts);
             IsBusy = false;
             _operationLock.Release();
+        }
+    }
+
+    private void CancelActiveOperation()
+    {
+        CancellationTokenSource? cts;
+        lock (_operationCtsGate)
+        {
+            cts = _activeOperationCts;
+        }
+
+        try
+        {
+            cts?.Cancel();
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+    }
+
+    private void SetActiveOperationCancellation(CancellationTokenSource cts)
+    {
+        ArgumentNullException.ThrowIfNull(cts);
+
+        lock (_operationCtsGate)
+        {
+            _activeOperationCts = cts;
+        }
+    }
+
+    private void ClearActiveOperationCancellation(CancellationTokenSource cts)
+    {
+        ArgumentNullException.ThrowIfNull(cts);
+
+        lock (_operationCtsGate)
+        {
+            if (ReferenceEquals(_activeOperationCts, cts))
+            {
+                _activeOperationCts = null;
+            }
         }
     }
 

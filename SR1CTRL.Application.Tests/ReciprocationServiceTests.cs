@@ -35,6 +35,22 @@ public sealed class ReciprocationServiceTests
         Assert.Contains("L09000", serial.SentLines[0]);
     }
 
+    [Fact]
+    public async Task ConfigureLinear_WhileWaiting_ReflectsImmediately()
+    {
+        var serial = new RecordingSerialConnection();
+        var sut = new ReciprocationService(serial);
+
+        await sut.StartAsync();
+        sut.ConfigureLinear(new AxisMotionSettings(AxisType.L, 0, 0.1, 0.9, 0.1), applyImmediately: true);
+        Assert.True(await serial.WaitForSentCountAsync(1, TimeSpan.FromMilliseconds(500)));
+
+        sut.ConfigureLinear(new AxisMotionSettings(AxisType.L, 0, 0.2, 0.8, 1.0), applyImmediately: true);
+        Assert.True(await serial.WaitForSentCountAsync(2, TimeSpan.FromMilliseconds(500)));
+
+        await sut.StopAsync();
+    }
+
     private sealed class RecordingSerialConnection : ISerialConnection
     {
         private readonly List<string> _sentLines = new();
@@ -73,5 +89,28 @@ public sealed class ReciprocationServiceTests
         }
 
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+
+        public async Task<bool> WaitForSentCountAsync(int expectedCount, TimeSpan timeout)
+        {
+            var deadlineUtc = DateTime.UtcNow + timeout;
+
+            while (DateTime.UtcNow < deadlineUtc)
+            {
+                lock (_gate)
+                {
+                    if (_sentLines.Count >= expectedCount)
+                    {
+                        return true;
+                    }
+                }
+
+                await Task.Delay(10);
+            }
+
+            lock (_gate)
+            {
+                return _sentLines.Count >= expectedCount;
+            }
+        }
     }
 }
