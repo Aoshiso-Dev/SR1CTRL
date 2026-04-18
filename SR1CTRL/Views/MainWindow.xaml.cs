@@ -12,6 +12,7 @@ public partial class MainWindow : Window
     private readonly MainViewModel _vm;
     private readonly ILogger<MainWindow> _logger;
     private readonly GlobalKeyboardHook? _keyboardHook;
+    private DeviceInfoWindow? _deviceInfoWindow;
 
     public MainWindow(MainViewModel vm, ILogger<MainWindow> logger)
     {
@@ -33,6 +34,31 @@ public partial class MainWindow : Window
         }
 
         Closed += (_, _) => _keyboardHook?.Dispose();
+    }
+
+    private async void ReadDeviceInfoButton_Click(object sender, RoutedEventArgs e)
+    {
+        var deviceInfoWindow = _deviceInfoWindow;
+        if (deviceInfoWindow is null || !deviceInfoWindow.IsLoaded)
+        {
+            deviceInfoWindow = new DeviceInfoWindow
+            {
+                Owner = this,
+                DataContext = _vm
+            };
+            deviceInfoWindow.Closed += (_, _) => _deviceInfoWindow = null;
+            _deviceInfoWindow = deviceInfoWindow;
+            deviceInfoWindow.Show();
+        }
+        else
+        {
+            deviceInfoWindow.Activate();
+        }
+
+        if (_vm.QueryDeviceInfoCommand.CanExecute(null))
+        {
+            await _vm.QueryDeviceInfoCommand.ExecuteAsync(null);
+        }
     }
 
     private async void OnGlobalKeyPressed(object? sender, Key key)
