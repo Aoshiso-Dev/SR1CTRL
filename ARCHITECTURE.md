@@ -1,6 +1,7 @@
 ﻿# SR1CTRL Clean Architecture
 
 開発時の共通ポリシーは [AGENTS.md](AGENTS.md) を参照してください。
+リリース運用は [RELEASE.md](RELEASE.md) を参照してください。
 
 ## Layering
 
