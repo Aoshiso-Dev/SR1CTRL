@@ -1,5 +1,10 @@
 ﻿# AGENTS
 
+## Workflow Policy
+
+- すべての作業開始時に、最新版の `AGENTS.md` を必ず確認してから着手する。
+- ビルド確認は `Release` 構成を基本とし、`dotnet build -c Release` を優先して実行する。
+
 ## C# Language Policy (Prefer Latest)
 
 - 新規実装・リファクタでは、可読性を損なわない範囲で、より新しい C# 記法・機能を優先して採用する。

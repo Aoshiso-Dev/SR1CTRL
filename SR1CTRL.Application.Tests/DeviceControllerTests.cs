@@ -9,6 +9,7 @@ public sealed class DeviceControllerTests
     public async Task ConnectAndDisconnect_ChangesConnectionState_AndDisposesConnection()
     {
         var factory = new FakeSerialConnectionFactory();
+        factory.EnqueueResponse("D0", "device");
         var sut = new DeviceController(factory);
 
         await sut.ConnectAsync("COM7", 9600, CancellationToken.None);
@@ -30,6 +31,7 @@ public sealed class DeviceControllerTests
     {
         var factory = new FakeSerialConnectionFactory();
         factory.EnqueueResponse("D0", "device");
+        factory.EnqueueResponse("D0", "device");
         factory.EnqueueResponse("D1", "tcode");
         factory.EnqueueResponse("D2", "L0\nR0");
 
@@ -47,6 +49,7 @@ public sealed class DeviceControllerTests
     public async Task StartAsync_CanBeCalledTwice_WithoutFailure()
     {
         var factory = new FakeSerialConnectionFactory();
+        factory.EnqueueResponse("D0", "device");
         var sut = new DeviceController(factory);
         await sut.ConnectAsync("COM7", 9600, CancellationToken.None);
 
@@ -57,6 +60,22 @@ public sealed class DeviceControllerTests
 
         await sut.StopAsync(CancellationToken.None);
         Assert.False(sut.IsRunning);
+    }
+
+    [Fact]
+    public async Task ConnectAsync_WhenDeviceDoesNotRespond_ThrowsAndDisposesConnection()
+    {
+        var factory = new FakeSerialConnectionFactory();
+        var sut = new DeviceController(factory);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => sut.ConnectAsync("COM7", 9600, CancellationToken.None));
+
+        Assert.Contains("応答", ex.Message);
+        Assert.False(sut.IsConnected);
+        Assert.NotNull(factory.LastConnection);
+        Assert.True(factory.LastConnection!.OpenCalled);
+        Assert.True(factory.LastConnection.CloseCalled);
+        Assert.True(factory.LastConnection.DisposeCalled);
     }
 
     private sealed class FakeSerialConnectionFactory : ISerialConnectionFactory

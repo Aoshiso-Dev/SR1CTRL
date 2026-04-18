@@ -43,21 +43,26 @@ internal sealed class DeviceConnectionManager
         await serial.OpenAsync().ConfigureAwait(false);
 
         var created = new DeviceSession(serial);
-        var keepCreated = false;
-
-        lock (_gate)
+        try
         {
-            if (_session is null)
+            await EnsureDeviceRespondingAsync(created, cancellationToken).ConfigureAwait(false);
+
+            lock (_gate)
             {
-                _session = created;
-                keepCreated = true;
+                if (_session is null)
+                {
+                    _session = created;
+                    return;
+                }
             }
         }
-
-        if (!keepCreated)
+        catch
         {
             await created.DisposeAsync().ConfigureAwait(false);
+            throw;
         }
+
+        await created.DisposeAsync().ConfigureAwait(false);
     }
 
     public DeviceSession RequireSession()
@@ -93,6 +98,20 @@ internal sealed class DeviceConnectionManager
 
         cancellationToken.ThrowIfCancellationRequested();
         await current.DisposeAsync().ConfigureAwait(false);
+    }
+
+    private static async Task EnsureDeviceRespondingAsync(DeviceSession session, CancellationToken cancellationToken)
+    {
+        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeoutCts.CancelAfter(TimeSpan.FromSeconds(1));
+
+        var response = await session.Query.QueryD0Async(timeoutCts.Token).ConfigureAwait(false);
+        if (!string.IsNullOrWhiteSpace(response))
+        {
+            return;
+        }
+
+        throw new InvalidOperationException("接続先デバイスの応答を確認できませんでした。COMポート設定と接続先を確認してください。");
     }
 }
 
