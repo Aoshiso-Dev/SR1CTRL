@@ -54,75 +54,57 @@
         </Grid.RowDefinitions>
 
         <Border Grid.Row="0" Style="{StaticResource CardBorderStyle}">
-            <DockPanel LastChildFill="True">
-                <StackPanel DockPanel.Dock="Left" Margin="0,0,16,0">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0" Margin="0,0,16,0">
                     <TextBlock Text="SR1CTRL" FontSize="22" FontWeight="Bold"/>
                     <TextBlock Text="{Binding StatusText}" Foreground="{StaticResource Brush.TextMuted}" Margin="0,4,0,0"/>
                 </StackPanel>
 
-                <Border Padding="14,8"
-                        CornerRadius="999"
-                        BorderThickness="1">
-                    <Border.BorderBrush>
-                        <SolidColorBrush Color="#445877"/>
-                    </Border.BorderBrush>
-                    <Border.Style>
-                        <Style TargetType="Border">
-                            <Setter Property="Background" Value="#1E1B273C"/>
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding IsConnected}" Value="True">
-                                    <Setter Property="Background" Value="#1E1A3A2A"/>
-                                    <Setter Property="BorderBrush" Value="#3A22C55E"/>
-                                </DataTrigger>
-                                <DataTrigger Binding="{Binding IsRunning}" Value="True">
-                                    <Setter Property="Background" Value="#1E173246"/>
-                                    <Setter Property="BorderBrush" Value="#4433D1FF"/>
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </Border.Style>
-                    <StackPanel Orientation="Horizontal">
-                        <Ellipse Width="8" Height="8" Margin="0,0,8,0" VerticalAlignment="Center">
-                            <Ellipse.Style>
-                                <Style TargetType="Ellipse">
-                                    <Setter Property="Fill" Value="{StaticResource Brush.TextMuted}"/>
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding IsConnected}" Value="True">
-                                            <Setter Property="Fill" Value="{StaticResource Brush.Success}"/>
-                                        </DataTrigger>
-                                        <DataTrigger Binding="{Binding IsRunning}" Value="True">
-                                            <Setter Property="Fill" Value="{StaticResource Brush.Accent}"/>
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Ellipse.Style>
-                        </Ellipse>
-                        <TextBlock FontWeight="Bold" FontSize="12">
-                            <TextBlock.Style>
-                                <Style TargetType="TextBlock">
-                                    <Setter Property="Text" Value="OFFLINE"/>
-                                    <Setter Property="Foreground" Value="{StaticResource Brush.TextMuted}"/>
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding IsConnected}" Value="True">
-                                            <Setter Property="Text" Value="CONNECTED"/>
-                                            <Setter Property="Foreground" Value="{StaticResource Brush.Success}"/>
-                                        </DataTrigger>
-                                        <DataTrigger Binding="{Binding IsRunning}" Value="True">
-                                            <Setter Property="Text" Value="RUNNING"/>
-                                            <Setter Property="Foreground" Value="{StaticResource Brush.Accent}"/>
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </TextBlock.Style>
-                        </TextBlock>
-                    </StackPanel>
-                </Border>
-            </DockPanel>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Border Width="8" Height="8" CornerRadius="2" Margin="0,0,8,0" VerticalAlignment="Center">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="Background" Value="{StaticResource Brush.TextMuted}"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsConnected}" Value="True">
+                                        <Setter Property="Background" Value="{StaticResource Brush.Success}"/>
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding IsRunning}" Value="True">
+                                        <Setter Property="Background" Value="{StaticResource Brush.Accent}"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                    </Border>
+                    <TextBlock FontWeight="Bold" FontSize="12" VerticalAlignment="Center">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Text" Value="OFFLINE"/>
+                                <Setter Property="Foreground" Value="{StaticResource Brush.TextMuted}"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsConnected}" Value="True">
+                                        <Setter Property="Text" Value="CONNECTED"/>
+                                        <Setter Property="Foreground" Value="{StaticResource Brush.Success}"/>
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding IsRunning}" Value="True">
+                                        <Setter Property="Text" Value="RUNNING"/>
+                                        <Setter Property="Foreground" Value="{StaticResource Brush.Accent}"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </StackPanel>
+            </Grid>
         </Border>
 
         <Border Grid.Row="1" Style="{StaticResource CardBorderStyle}">
             <StackPanel>
-                <TextBlock Text="Connection" Style="{StaticResource SectionTitleStyle}"/>
                 <Grid Margin="0,0,0,8">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="2*"/>

@@ -242,6 +242,11 @@ public partial class MainWindow : Window
 
     private Task HandleHotkeyAsync(HotkeyAction action)
     {
+        if (!_vm.IsConnected)
+        {
+            return Task.CompletedTask;
+        }
+
         switch (action)
         {
             case HotkeyAction.StartStop:
