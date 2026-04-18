@@ -13,8 +13,10 @@ public sealed class ReciprocationService : IDisposable
 
     private CancellationTokenSource? _cts;
     private Task? _task;
+    private bool _disposed;
 
-    private readonly Queue<string> _pendingCommands = new();
+    private string? _pendingLinearCommand;
+    private string? _pendingRotateCommand;
 
     public ReciprocationService(ISerialConnection serial)
     {
@@ -25,13 +27,15 @@ public sealed class ReciprocationService : IDisposable
     {
         lock (_gate)
         {
+            ThrowIfDisposed();
+
             if (_lin is null) _lin = new AxisReciprocator(settings);
             else _lin.UpdateSettings(settings, applyImmediately);
 
             if (applyImmediately && _cts is not null)
             {
                 var command = _lin.Reapply(DateTime.UtcNow);
-                _pendingCommands.Enqueue(command);
+                _pendingLinearCommand = command;
             }
         }
     }
@@ -40,38 +44,65 @@ public sealed class ReciprocationService : IDisposable
     {
         lock (_gate)
         {
+            ThrowIfDisposed();
+
             if (_rot is null) _rot = new AxisReciprocator(settings);
             else _rot.UpdateSettings(settings, applyImmediately);
 
             if (applyImmediately && _cts is not null)
             {
                 var command = _rot.Reapply(DateTime.UtcNow);
-                _pendingCommands.Enqueue(command);
+                _pendingRotateCommand = command;
             }
         }
     }
 
     public Task StartAsync()
     {
-        if (_cts is not null) throw new InvalidOperationException("Already started.");
+        lock (_gate)
+        {
+            ThrowIfDisposed();
 
-        _cts = new CancellationTokenSource();
-        _task = RunAsync(_cts.Token);
+            if (_cts is not null)
+            {
+                return Task.CompletedTask;
+            }
+
+            _cts = new CancellationTokenSource();
+            _task = RunAsync(_cts.Token);
+        }
 
         return Task.CompletedTask;
     }
 
     public async Task StopAsync()
     {
-        if (_cts is null) return;
+        CancellationTokenSource? cts;
+        Task? task;
 
-        _cts.Cancel();
+        lock (_gate)
+        {
+            cts = _cts;
+            task = _task;
+            _cts = null;
+            _task = null;
+
+            _pendingLinearCommand = null;
+            _pendingRotateCommand = null;
+        }
+
+        if (cts is null)
+        {
+            return;
+        }
+
+        cts.Cancel();
 
         try
         {
-            if (_task is not null)
+            if (task is not null)
             {
-                await _task.ConfigureAwait(false);
+                await task.ConfigureAwait(false);
             }
         }
         catch (OperationCanceledException)
@@ -79,32 +110,51 @@ public sealed class ReciprocationService : IDisposable
         }
         finally
         {
-            _cts.Dispose();
-            _cts = null;
-            _task = null;
+            cts.Dispose();
         }
     }
 
     public void Dispose()
     {
-        _cts?.Cancel();
+        CancellationTokenSource? cts;
+
+        lock (_gate)
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            _disposed = true;
+            cts = _cts;
+            _cts = null;
+            _task = null;
+            _pendingLinearCommand = null;
+            _pendingRotateCommand = null;
+        }
+
+        cts?.Cancel();
+        cts?.Dispose();
     }
 
     private async Task RunAsync(CancellationToken cancellationToken)
     {
         while (!cancellationToken.IsCancellationRequested)
         {
-            string? pending = null;
+            string? pendingLinear;
+            string? pendingRotate;
+
             lock (_gate)
             {
-                if (_pendingCommands.Count > 0)
-                {
-                    pending = _pendingCommands.Dequeue();
-                }
+                pendingLinear = _pendingLinearCommand;
+                pendingRotate = _pendingRotateCommand;
+                _pendingLinearCommand = null;
+                _pendingRotateCommand = null;
             }
 
-            if (pending is not null)
+            if (pendingLinear is not null || pendingRotate is not null)
             {
+                var pending = CombineCommands(pendingLinear, pendingRotate);
                 await _serial.SendLineAsync(pending, cancellationToken).ConfigureAwait(false);
                 continue;
             }
@@ -154,11 +204,24 @@ public sealed class ReciprocationService : IDisposable
                 continue;
             }
 
-            var line = (linearCommand is not null && rotateCommand is not null)
-                ? $"{linearCommand} {rotateCommand}"
-                : (linearCommand ?? rotateCommand!);
+            var line = CombineCommands(linearCommand, rotateCommand);
 
             await _serial.SendLineAsync(line, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    private static string CombineCommands(string? linearCommand, string? rotateCommand)
+    {
+        return (linearCommand is not null && rotateCommand is not null)
+            ? $"{linearCommand} {rotateCommand}"
+            : (linearCommand ?? rotateCommand!);
+    }
+
+    private void ThrowIfDisposed()
+    {
+        if (_disposed)
+        {
+            throw new ObjectDisposedException(nameof(ReciprocationService));
         }
     }
 

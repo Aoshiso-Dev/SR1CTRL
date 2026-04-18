@@ -26,24 +26,22 @@ public sealed class AxisReciprocator
 
     public string Reapply(DateTime nowUtc)
     {
-        var normalized = Settings.Normalize();
-        var oneWayMs = normalized.OneWayRampMs();
+        var oneWayMs = Settings.OneWayRampMs();
 
-        var target = _towardMax ? normalized.Max : normalized.Min;
+        var target = _towardMax ? Settings.Max : Settings.Min;
         NextAtUtc = nowUtc + TimeSpan.FromMilliseconds(oneWayMs);
 
-        return TCodeFormatter.AxisWithInterval(normalized, target, oneWayMs);
+        return TCodeFormatter.AxisWithInterval(Settings, target, oneWayMs);
     }
 
     public string Step(DateTime nowUtc)
     {
-        var normalized = Settings.Normalize();
-        var oneWayMs = normalized.OneWayRampMs();
+        var oneWayMs = Settings.OneWayRampMs();
 
-        var target = _towardMax ? normalized.Max : normalized.Min;
+        var target = _towardMax ? Settings.Max : Settings.Min;
         _towardMax = !_towardMax;
         NextAtUtc = nowUtc + TimeSpan.FromMilliseconds(oneWayMs);
 
-        return TCodeFormatter.AxisWithInterval(normalized, target, oneWayMs);
+        return TCodeFormatter.AxisWithInterval(Settings, target, oneWayMs);
     }
 }

@@ -43,6 +43,22 @@ public sealed class DeviceControllerTests
         Assert.Equal($"L0{Environment.NewLine}R0", info.D2);
     }
 
+    [Fact]
+    public async Task StartAsync_CanBeCalledTwice_WithoutFailure()
+    {
+        var factory = new FakeSerialConnectionFactory();
+        var sut = new DeviceController(factory);
+        await sut.ConnectAsync("COM7", 9600, CancellationToken.None);
+
+        await sut.StartAsync(CancellationToken.None);
+        await sut.StartAsync(CancellationToken.None);
+
+        Assert.True(sut.IsRunning);
+
+        await sut.StopAsync(CancellationToken.None);
+        Assert.False(sut.IsRunning);
+    }
+
     private sealed class FakeSerialConnectionFactory : ISerialConnectionFactory
     {
         private readonly Dictionary<string, Queue<string>> _responses = new(StringComparer.OrdinalIgnoreCase);

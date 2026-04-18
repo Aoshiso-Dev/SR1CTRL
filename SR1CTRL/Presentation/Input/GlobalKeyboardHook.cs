@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+﻿using System.ComponentModel;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Windows.Input;
 
@@ -33,6 +34,10 @@ public sealed class GlobalKeyboardHook : IDisposable
     {
         _proc = HookCallback;
         _hookId = SetHook(_proc);
+        if (_hookId == 0)
+        {
+            throw new Win32Exception(Marshal.GetLastWin32Error(), "Failed to install global keyboard hook.");
+        }
     }
 
     private nint SetHook(LowLevelKeyboardProc proc)

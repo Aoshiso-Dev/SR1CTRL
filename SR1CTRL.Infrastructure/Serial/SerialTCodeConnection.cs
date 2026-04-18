@@ -1,6 +1,7 @@
-﻿using System.IO.Ports;
-using System.Text;
+﻿using Microsoft.Extensions.Logging;
 using SR1CTRL.Application.Abstractions;
+using System.IO.Ports;
+using System.Text;
 
 namespace SR1CTRL.Infrastructure.Serial;
 
@@ -8,6 +9,7 @@ public sealed class SerialTCodeConnection : ISerialConnection
 {
     private readonly SerialPort _serialPort;
     private readonly SemaphoreSlim _writeLock = new(1, 1);
+    private readonly ILogger<SerialTCodeConnection> _logger;
 
     private readonly object _rxGate = new();
     private readonly StringBuilder _rx = new();
@@ -16,8 +18,9 @@ public sealed class SerialTCodeConnection : ISerialConnection
 
     public bool IsOpen => _serialPort.IsOpen;
 
-    public SerialTCodeConnection(string portName, int baudRate)
+    public SerialTCodeConnection(string portName, int baudRate, ILogger<SerialTCodeConnection> logger)
     {
+        _logger = logger;
         _serialPort = new SerialPort(portName, baudRate, Parity.None, 8, StopBits.One)
         {
             NewLine = "\n",
@@ -112,33 +115,42 @@ public sealed class SerialTCodeConnection : ISerialConnection
             lock (_rxGate)
             {
                 _rx.Append(data);
-
-                while (true)
-                {
-                    var current = _rx.ToString();
-                    var idx = current.IndexOf('\n');
-                    if (idx < 0)
-                    {
-                        break;
-                    }
-
-                    var line = current.Substring(0, idx).TrimEnd('\r');
-                    _lines.Enqueue(line);
-
-                    _rx.Clear();
-                    _rx.Append(current.Substring(idx + 1));
-                }
+                ExtractCompleteLines();
 
                 _lineArrived?.TrySetResult(true);
                 _lineArrived = null;
             }
         }
-        catch
+        catch (Exception ex)
         {
+            _logger.LogWarning(ex, "Failed to process incoming serial data.");
         }
     }
 
-    public async ValueTask DisposeAsync()
+    private void ExtractCompleteLines()
+    {
+        var segmentStart = 0;
+
+        for (var i = 0; i < _rx.Length; i++)
+        {
+            if (_rx[i] != '\n')
+            {
+                continue;
+            }
+
+            var segmentLength = i - segmentStart;
+            var line = _rx.ToString(segmentStart, segmentLength).TrimEnd('\r');
+            _lines.Enqueue(line);
+            segmentStart = i + 1;
+        }
+
+        if (segmentStart > 0)
+        {
+            _rx.Remove(0, segmentStart);
+        }
+    }
+
+    public ValueTask DisposeAsync()
     {
         _serialPort.DataReceived -= OnDataReceived;
 
@@ -149,13 +161,14 @@ public sealed class SerialTCodeConnection : ISerialConnection
                 _serialPort.Close();
             }
         }
-        catch
+        catch (Exception ex)
         {
+            _logger.LogWarning(ex, "Failed to close serial port while disposing.");
         }
 
         _serialPort.Dispose();
         _writeLock.Dispose();
 
-        await Task.CompletedTask;
+        return ValueTask.CompletedTask;
     }
 }

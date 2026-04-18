@@ -5,6 +5,7 @@ namespace SR1CTRL.Application.Services;
 internal sealed class DeviceExecutionController
 {
     private readonly object _gate = new();
+    private readonly SemaphoreSlim _transitionLock = new(1, 1);
 
     private bool _isRunning;
 
@@ -21,43 +22,59 @@ internal sealed class DeviceExecutionController
 
     public async Task StartAsync(DeviceSession session, CancellationToken cancellationToken)
     {
-        lock (_gate)
+        await _transitionLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
         {
-            if (_isRunning)
+            lock (_gate)
             {
-                return;
+                if (_isRunning)
+                {
+                    return;
+                }
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+            await session.Reciprocation.StartAsync().ConfigureAwait(false);
+
+            lock (_gate)
+            {
+                _isRunning = true;
             }
         }
-
-        cancellationToken.ThrowIfCancellationRequested();
-        await session.Reciprocation.StartAsync().ConfigureAwait(false);
-
-        lock (_gate)
+        finally
         {
-            _isRunning = true;
+            _transitionLock.Release();
         }
     }
 
     public async Task StopAsync(DeviceSession? session, CancellationToken cancellationToken)
     {
-        lock (_gate)
+        await _transitionLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
         {
-            if (!_isRunning)
+            lock (_gate)
             {
-                return;
+                if (!_isRunning)
+                {
+                    return;
+                }
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (session is not null)
+            {
+                await session.Reciprocation.StopAsync().ConfigureAwait(false);
+            }
+
+            lock (_gate)
+            {
+                _isRunning = false;
             }
         }
-
-        cancellationToken.ThrowIfCancellationRequested();
-
-        if (session is not null)
+        finally
         {
-            await session.Reciprocation.StopAsync().ConfigureAwait(false);
-        }
-
-        lock (_gate)
-        {
-            _isRunning = false;
+            _transitionLock.Release();
         }
     }
 

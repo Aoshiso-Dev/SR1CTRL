@@ -1,5 +1,7 @@
 ﻿# SR1CTRL Clean Architecture
 
+開発時の共通ポリシーは [AGENTS.md](AGENTS.md) を参照してください。
+
 ## Layering
 
 - `SR1CTRL.Domain`
