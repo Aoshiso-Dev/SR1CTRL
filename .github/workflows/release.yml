@@ -29,12 +29,21 @@ jobs:
         run: dotnet build SR1CTRL.slnx -c Release --no-restore
 
       - name: Publish app
-        run: dotnet publish SR1CTRL/SR1CTRL.csproj -c Release -r win-x64 --self-contained false -o publish/win-x64
+        run: dotnet publish SR1CTRL/SR1CTRL.csproj -c Release -r win-x64 --self-contained false -p:DebugSymbols=false -p:DebugType=None -o publish/win-x64
 
       - name: Remove symbol files
         shell: pwsh
         run: |
-          Get-ChildItem -Path "publish/win-x64" -Filter "*.pdb" -File | Remove-Item -Force
+          Get-ChildItem -Path "publish/win-x64" -Recurse -Filter "*.pdb" -File | Remove-Item -Force
+
+      - name: Verify no pdb files
+        shell: pwsh
+        run: |
+          $pdbFiles = Get-ChildItem -Path "publish/win-x64" -Recurse -Filter "*.pdb" -File
+          if ($pdbFiles.Count -gt 0) {
+            $pdbFiles | ForEach-Object { Write-Error "PDB remains: $($_.FullName)" }
+            throw "PDB files remain in publish output."
+          }
 
       - name: Create zip archive
         shell: pwsh
