@@ -1,4 +1,4 @@
-<Window x:Class="SR1CTRL.Views.MainWindow"
+﻿<Window x:Class="SR1CTRL.Views.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="SR1CTRL"
@@ -157,6 +157,14 @@
                             Content="Read D0/D1/D2"
                             IsEnabled="{Binding IsConnected}"
                             Click="ReadDeviceInfoButton_Click"/>
+                    <Button Style="{StaticResource ActionButtonStyle}"
+                            Margin="8,0,0,0"
+                            Content="Hotkey Settings"
+                            Click="OpenHotkeySettingsButton_Click"/>
+                    <Button Style="{StaticResource ActionButtonStyle}"
+                            Margin="8,0,0,0"
+                            Content="HID Diagnostic"
+                            Click="OpenHidDiagnosticButton_Click"/>
                 </WrapPanel>
             </StackPanel>
         </Border>
@@ -179,7 +187,7 @@
                                 IsEnabled="{Binding IsConnected}"/>
                     </StackPanel>
                 </DockPanel>
-                <TextBlock Text="Linear / Rotate は下のカードで個別に調整できます。"
+                <TextBlock Text="Linear / Rotate は下のカードで調整できます。"
                            Foreground="{StaticResource Brush.TextMuted}"/>
             </StackPanel>
         </Border>
@@ -267,3 +275,7 @@
                      Visibility="{Binding IsBusy, Converter={StaticResource BooleanToVisibilityConverter}}"/>
     </Grid>
 </Window>
+
+
+
+

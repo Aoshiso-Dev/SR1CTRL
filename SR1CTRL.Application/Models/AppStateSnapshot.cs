@@ -1,7 +1,14 @@
-namespace SR1CTRL.Application.Models;
+﻿namespace SR1CTRL.Application.Models;
 
 public sealed record AppStateSnapshot
 {
+    public string? HotkeyDeviceName { get; init; }
+    public string? HotkeyStartStopKey { get; init; }
+    public string? HotkeyLinearSpeedDownKey { get; init; }
+    public string? HotkeyLinearSpeedUpKey { get; init; }
+    public string? HotkeyRotateSpeedDownKey { get; init; }
+    public string? HotkeyRotateSpeedUpKey { get; init; }
+
     public string? SelectedPort { get; init; }
 
     public int? BaudRate { get; init; }
@@ -18,3 +25,4 @@ public sealed record AppStateSnapshot
 
     public double? R_Speed { get; init; }
 }
+

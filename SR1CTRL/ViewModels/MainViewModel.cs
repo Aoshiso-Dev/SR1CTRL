@@ -5,6 +5,8 @@ using SR1CTRL.Application.Abstractions;
 using SR1CTRL.Application.Models;
 using SR1CTRL.Application.UseCases;
 using SR1CTRL.Presentation.Config;
+using System.Collections.ObjectModel;
+using System.Windows.Input;
 
 namespace SR1CTRL.ViewModels;
 
@@ -12,6 +14,10 @@ public partial class MainViewModel : ObservableObject
 {
     private const double AxisGapMin = 0.0001;
     private const double AxisUpperBound = 0.9999;
+    private static readonly IReadOnlyList<Key> HotkeyDefaults =
+    [
+        Key.F13, Key.F14, Key.F15, Key.F16, Key.F17
+    ];
 
     private readonly IComPortProvider _ports;
     private readonly DeviceControlUseCase _deviceControl;
@@ -31,6 +37,7 @@ public partial class MainViewModel : ObservableObject
         _deviceControl = deviceControl;
         _appStateStore = appStateStore;
         _logger = logger;
+        HidDiagnosticEntries = new ReadOnlyObservableCollection<string>(_hidDiagnosticEntries);
 
         RefreshPorts();
         ApplyLoadedState(_appStateStore.Load());
@@ -53,6 +60,21 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private string d2Text = string.Empty;
     [ObservableProperty] private string statusText = "Ready";
     [ObservableProperty] private string errorText = string.Empty;
+    [ObservableProperty] private bool isHidDiagnosticEnabled;
+    private string? _hotkeyDeviceName;
+    private readonly ObservableCollection<string> _hidDiagnosticEntries = [];
+    private readonly IReadOnlyList<Key> _availableHotkeys =
+    [
+        Key.F1, Key.F2, Key.F3, Key.F4, Key.F5, Key.F6, Key.F7, Key.F8, Key.F9, Key.F10, Key.F11, Key.F12,
+        Key.F13, Key.F14, Key.F15, Key.F16, Key.F17, Key.F18, Key.F19, Key.F20, Key.F21, Key.F22, Key.F23, Key.F24
+    ];
+
+    [ObservableProperty] private Key startStopHotkey = HotkeyDefaults[0];
+    [ObservableProperty] private Key linearSpeedDownHotkey = HotkeyDefaults[1];
+    [ObservableProperty] private Key linearSpeedUpHotkey = HotkeyDefaults[2];
+    [ObservableProperty] private Key rotateSpeedDownHotkey = HotkeyDefaults[3];
+    [ObservableProperty] private Key rotateSpeedUpHotkey = HotkeyDefaults[4];
+    [ObservableProperty] private HotkeyAction? listeningHotkeyAction;
 
     [ObservableProperty] private double l_Min;
     [ObservableProperty] private double l_Max;
@@ -66,6 +88,21 @@ public partial class MainViewModel : ObservableObject
     public double LinearSpeedMax => MotionDefaults.LinearSpeedMax;
     public double RotateSpeedMin => MotionDefaults.RotateSpeedMin;
     public double RotateSpeedMax => MotionDefaults.RotateSpeedMax;
+    public IReadOnlyList<Key> AvailableHotkeys => _availableHotkeys;
+    public string StartStopHotkeyText => StartStopHotkey.ToString();
+    public string LinearSpeedDownHotkeyText => LinearSpeedDownHotkey.ToString();
+    public string LinearSpeedUpHotkeyText => LinearSpeedUpHotkey.ToString();
+    public string RotateSpeedDownHotkeyText => RotateSpeedDownHotkey.ToString();
+    public string RotateSpeedUpHotkeyText => RotateSpeedUpHotkey.ToString();
+    public ReadOnlyObservableCollection<string> HidDiagnosticEntries { get; }
+    public string HidDiagnosticButtonText => IsHidDiagnosticEnabled ? "HID診断停止" : "HID診断開始";
+    public string HidDiagnosticSummary => string.IsNullOrWhiteSpace(_hotkeyDeviceName)
+        ? "対象デバイス未バインド: 診断開始後にマクロキーボードのキー/ノブを操作してください。"
+        : $"対象デバイス: {_hotkeyDeviceName}";
+    public bool IsHotkeyCaptureActive => ListeningHotkeyAction.HasValue;
+    public string HotkeyCaptureStatus => ListeningHotkeyAction is null
+        ? "入力待ちは停止中です。"
+        : $"入力待ち中: {GetHotkeyActionLabel(ListeningHotkeyAction.Value)}";
 
     partial void OnL_MinChanged(double value) => ApplyLinear();
     partial void OnL_MaxChanged(double value) => ApplyLinear();
@@ -74,9 +111,50 @@ public partial class MainViewModel : ObservableObject
     partial void OnR_MinChanged(double value) => ApplyRotate();
     partial void OnR_MaxChanged(double value) => ApplyRotate();
     partial void OnR_SpeedChanged(double value) => ApplyRotate();
+    partial void OnStartStopHotkeyChanged(Key value) => OnPropertyChanged(nameof(StartStopHotkeyText));
+    partial void OnLinearSpeedDownHotkeyChanged(Key value) => OnPropertyChanged(nameof(LinearSpeedDownHotkeyText));
+    partial void OnLinearSpeedUpHotkeyChanged(Key value) => OnPropertyChanged(nameof(LinearSpeedUpHotkeyText));
+    partial void OnRotateSpeedDownHotkeyChanged(Key value) => OnPropertyChanged(nameof(RotateSpeedDownHotkeyText));
+    partial void OnRotateSpeedUpHotkeyChanged(Key value) => OnPropertyChanged(nameof(RotateSpeedUpHotkeyText));
+    partial void OnListeningHotkeyActionChanged(HotkeyAction? value)
+    {
+        OnPropertyChanged(nameof(IsHotkeyCaptureActive));
+        OnPropertyChanged(nameof(HotkeyCaptureStatus));
+    }
+
+    partial void OnIsHidDiagnosticEnabledChanged(bool value)
+    {
+        OnPropertyChanged(nameof(HidDiagnosticButtonText));
+        SetStatus(value ? "HID診断を開始しました" : "HID診断を停止しました");
+    }
 
     [RelayCommand]
     private void RefreshPortList() => RefreshPorts();
+
+    [RelayCommand]
+    private void ToggleHidDiagnostic() => IsHidDiagnosticEnabled = !IsHidDiagnosticEnabled;
+
+    [RelayCommand]
+    private void ClearHidDiagnostics() => _hidDiagnosticEntries.Clear();
+
+    [RelayCommand]
+    private void StartHotkeyCapture(string actionName)
+    {
+        if (!Enum.TryParse<HotkeyAction>(actionName, true, out var action))
+        {
+            return;
+        }
+
+        ListeningHotkeyAction = action;
+        SetStatus($"入力待ち開始: {GetHotkeyActionLabel(action)}");
+    }
+
+    [RelayCommand]
+    private void CancelHotkeyCapture()
+    {
+        ListeningHotkeyAction = null;
+        SetStatus("入力待ちをキャンセルしました。");
+    }
 
     [RelayCommand]
     private async Task Connect()
@@ -205,12 +283,42 @@ public partial class MainViewModel : ObservableObject
         SetError(message);
     }
 
+    public string? HotkeyDeviceName => _hotkeyDeviceName;
+
+    public void SetHotkeyDeviceName(string? deviceName)
+    {
+        _hotkeyDeviceName = string.IsNullOrWhiteSpace(deviceName)
+            ? null
+            : deviceName;
+        OnPropertyChanged(nameof(HidDiagnosticSummary));
+    }
+
+    public void AddHidDiagnosticEntry(string message)
+    {
+        if (string.IsNullOrWhiteSpace(message))
+        {
+            return;
+        }
+
+        _hidDiagnosticEntries.Add(message);
+        while (_hidDiagnosticEntries.Count > 200)
+        {
+            _hidDiagnosticEntries.RemoveAt(0);
+        }
+    }
+
     public void SaveCurrentState()
     {
         try
         {
             _appStateStore.Save(new AppStateSnapshot
             {
+                HotkeyDeviceName = _hotkeyDeviceName,
+                HotkeyStartStopKey = StartStopHotkey.ToString(),
+                HotkeyLinearSpeedDownKey = LinearSpeedDownHotkey.ToString(),
+                HotkeyLinearSpeedUpKey = LinearSpeedUpHotkey.ToString(),
+                HotkeyRotateSpeedDownKey = RotateSpeedDownHotkey.ToString(),
+                HotkeyRotateSpeedUpKey = RotateSpeedUpHotkey.ToString(),
                 SelectedPort = SelectedPort,
                 BaudRate = BaudRate,
                 L_Min = L_Min,
@@ -448,6 +556,14 @@ public partial class MainViewModel : ObservableObject
     private void ApplyLoadedState(AppStateSnapshot state)
     {
         ArgumentNullException.ThrowIfNull(state);
+        _hotkeyDeviceName = string.IsNullOrWhiteSpace(state.HotkeyDeviceName)
+            ? null
+            : state.HotkeyDeviceName;
+        StartStopHotkey = ParseHotkeyOrDefault(state.HotkeyStartStopKey, HotkeyDefaults[0]);
+        LinearSpeedDownHotkey = ParseHotkeyOrDefault(state.HotkeyLinearSpeedDownKey, HotkeyDefaults[1]);
+        LinearSpeedUpHotkey = ParseHotkeyOrDefault(state.HotkeyLinearSpeedUpKey, HotkeyDefaults[2]);
+        RotateSpeedDownHotkey = ParseHotkeyOrDefault(state.HotkeyRotateSpeedDownKey, HotkeyDefaults[3]);
+        RotateSpeedUpHotkey = ParseHotkeyOrDefault(state.HotkeyRotateSpeedUpKey, HotkeyDefaults[4]);
 
         BaudRate = state.BaudRate.GetValueOrDefault(MotionDefaults.DefaultBaudRate);
 
@@ -469,4 +585,104 @@ public partial class MainViewModel : ObservableObject
 
         SelectedPort = _portNames.FirstOrDefault();
     }
+
+    public bool TryGetHotkeyAction(Key key, out HotkeyAction action)
+    {
+        if (key == StartStopHotkey)
+        {
+            action = HotkeyAction.StartStop;
+            return true;
+        }
+
+        if (key == LinearSpeedDownHotkey)
+        {
+            action = HotkeyAction.LinearSpeedDown;
+            return true;
+        }
+
+        if (key == LinearSpeedUpHotkey)
+        {
+            action = HotkeyAction.LinearSpeedUp;
+            return true;
+        }
+
+        if (key == RotateSpeedDownHotkey)
+        {
+            action = HotkeyAction.RotateSpeedDown;
+            return true;
+        }
+
+        if (key == RotateSpeedUpHotkey)
+        {
+            action = HotkeyAction.RotateSpeedUp;
+            return true;
+        }
+
+        action = default;
+        return false;
+    }
+
+    public bool TryCaptureHotkey(Key key, out HotkeyAction action)
+    {
+        action = default;
+        if (ListeningHotkeyAction is not { } targetAction)
+        {
+            return false;
+        }
+
+        AssignHotkey(targetAction, key);
+        ListeningHotkeyAction = null;
+        action = targetAction;
+        SetStatus($"割り当て更新: {GetHotkeyActionLabel(targetAction)} = {key}");
+        return true;
+    }
+
+    private static Key ParseHotkeyOrDefault(string? value, Key fallback)
+    {
+        if (!string.IsNullOrWhiteSpace(value)
+            && Enum.TryParse<Key>(value, true, out var parsed)
+            && parsed != Key.None)
+        {
+            return parsed;
+        }
+
+        return fallback;
+    }
+
+    private void AssignHotkey(HotkeyAction action, Key key)
+    {
+        switch (action)
+        {
+            case HotkeyAction.StartStop:
+                StartStopHotkey = key;
+                return;
+            case HotkeyAction.LinearSpeedDown:
+                LinearSpeedDownHotkey = key;
+                return;
+            case HotkeyAction.LinearSpeedUp:
+                LinearSpeedUpHotkey = key;
+                return;
+            case HotkeyAction.RotateSpeedDown:
+                RotateSpeedDownHotkey = key;
+                return;
+            case HotkeyAction.RotateSpeedUp:
+                RotateSpeedUpHotkey = key;
+                return;
+        }
+    }
+
+    private static string GetHotkeyActionLabel(HotkeyAction action)
+    {
+        return action switch
+        {
+            HotkeyAction.StartStop => "再生/停止",
+            HotkeyAction.LinearSpeedDown => "Linear スピードDown",
+            HotkeyAction.LinearSpeedUp => "Linear スピードUp",
+            HotkeyAction.RotateSpeedDown => "Rotate スピードDown",
+            HotkeyAction.RotateSpeedUp => "Rotate スピードUp",
+            _ => action.ToString()
+        };
+    }
 }
+
+

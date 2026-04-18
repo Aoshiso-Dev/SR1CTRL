@@ -27,6 +27,9 @@
   - UI, ViewModel, composition root.
   - Depends on `SR1CTRL.Application` and `SR1CTRL.Infrastructure`.
   - UI defaults/ranges are centralized in `Presentation/Config/MotionDefaults.cs`.
+  - Global hotkey input is handled via Windows Raw Input and bound to a physical keyboard device name (persisted in `app-state.json`).
+  - Hotkey settings window allows per-function key mapping (start/stop and speed controls), including live assignment from next hardware input.
+  - HID diagnostic window captures raw HID report diffs from the bound device to infer knob/button candidates.
 
 ## Dependency direction
 
@@ -38,3 +41,5 @@
 
 - `SR1CTRL.Application.Tests`
   - Unit tests for `DeviceControlUseCase` and `DeviceController`.
+
+

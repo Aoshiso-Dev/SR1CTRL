@@ -1,0 +1,57 @@
+<Window x:Class="SR1CTRL.Views.HidDiagnosticWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="HID Diagnostic"
+        Width="760"
+        Height="460"
+        MinWidth="640"
+        MinHeight="360"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource Brush.Background}">
+    <Grid Margin="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <Border Grid.Row="0"
+                Padding="10"
+                CornerRadius="8"
+                BorderBrush="{StaticResource Brush.Border}"
+                BorderThickness="1"
+                Background="{StaticResource Brush.Surface}">
+            <DockPanel>
+                <StackPanel DockPanel.Dock="Left">
+                    <TextBlock Text="HID Diagnostic" FontSize="16" FontWeight="SemiBold"/>
+                    <TextBlock Text="{Binding HidDiagnosticSummary}"
+                               Foreground="{StaticResource Brush.TextMuted}"
+                               Margin="0,4,0,0"/>
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
+                    <Button Content="{Binding HidDiagnosticButtonText}"
+                            Command="{Binding ToggleHidDiagnosticCommand}"/>
+                    <Button Margin="8,0,0,0"
+                            Content="Copy"
+                            Click="CopyDiagnosticsButton_Click"/>
+                    <Button Margin="8,0,0,0"
+                            Content="Clear"
+                            Command="{Binding ClearHidDiagnosticsCommand}"/>
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <Border Grid.Row="1"
+                Margin="0,10,0,0"
+                Padding="8"
+                CornerRadius="8"
+                BorderBrush="{StaticResource Brush.Border}"
+                BorderThickness="1"
+                Background="{StaticResource Brush.Surface}">
+            <ListBox x:Name="DiagnosticsListBox"
+                     FontFamily="Consolas"
+                     SelectionMode="Extended"
+                     ItemsSource="{Binding HidDiagnosticEntries}"/>
+        </Border>
+    </Grid>
+</Window>
