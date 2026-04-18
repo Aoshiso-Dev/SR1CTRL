@@ -44,6 +44,7 @@ public partial class App
             return;
         }
 
+        _host.Services.GetRequiredService<MainViewModel>().SaveCurrentState();
         await _host.StopAsync(TimeSpan.FromSeconds(2));
         _host.Dispose();
     }

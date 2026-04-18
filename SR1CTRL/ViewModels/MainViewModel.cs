@@ -1,5 +1,6 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Extensions.Logging;
 using SR1CTRL.Application.Abstractions;
 using SR1CTRL.Application.Models;
 using SR1CTRL.Application.UseCases;
@@ -14,23 +15,23 @@ public partial class MainViewModel : ObservableObject
 
     private readonly IComPortProvider _ports;
     private readonly DeviceControlUseCase _deviceControl;
+    private readonly IAppStateStore _appStateStore;
+    private readonly ILogger<MainViewModel> _logger;
     private readonly SemaphoreSlim _operationLock = new(1, 1);
 
-    public MainViewModel(IComPortProvider ports, DeviceControlUseCase deviceControl)
+    public MainViewModel(
+        IComPortProvider ports,
+        DeviceControlUseCase deviceControl,
+        IAppStateStore appStateStore,
+        ILogger<MainViewModel> logger)
     {
         _ports = ports;
         _deviceControl = deviceControl;
+        _appStateStore = appStateStore;
+        _logger = logger;
 
-        BaudRate = MotionDefaults.DefaultBaudRate;
         RefreshPorts();
-
-        L_Min = MotionDefaults.LinearMinDefault;
-        L_Max = MotionDefaults.LinearMaxDefault;
-        L_Speed = MotionDefaults.LinearSpeedDefault;
-
-        R_Min = MotionDefaults.RotateMinDefault;
-        R_Max = MotionDefaults.RotateMaxDefault;
-        R_Speed = MotionDefaults.RotateSpeedDefault;
+        ApplyLoadedState(_appStateStore.Load());
 
         SyncState(_deviceControl.GetState());
     }
@@ -200,6 +201,28 @@ public partial class MainViewModel : ObservableObject
         SetError(message);
     }
 
+    public void SaveCurrentState()
+    {
+        try
+        {
+            _appStateStore.Save(new AppStateSnapshot
+            {
+                SelectedPort = SelectedPort,
+                BaudRate = BaudRate,
+                L_Min = L_Min,
+                L_Max = L_Max,
+                L_Speed = L_Speed,
+                R_Min = R_Min,
+                R_Max = R_Max,
+                R_Speed = R_Speed
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to save current state.");
+        }
+    }
+
     private void RefreshPorts()
     {
         try
@@ -367,5 +390,30 @@ public partial class MainViewModel : ObservableObject
         }
 
         return value;
+    }
+
+    private void ApplyLoadedState(AppStateSnapshot state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        BaudRate = state.BaudRate.GetValueOrDefault(MotionDefaults.DefaultBaudRate);
+
+        L_Min = Clamp(state.L_Min ?? MotionDefaults.LinearMinDefault, 0.0, AxisUpperBound);
+        L_Max = Clamp(state.L_Max ?? MotionDefaults.LinearMaxDefault, 0.0, AxisUpperBound);
+        L_Speed = Clamp(state.L_Speed ?? MotionDefaults.LinearSpeedDefault, MotionDefaults.LinearSpeedMin, MotionDefaults.LinearSpeedMax);
+
+        R_Min = Clamp(state.R_Min ?? MotionDefaults.RotateMinDefault, 0.0, AxisUpperBound);
+        R_Max = Clamp(state.R_Max ?? MotionDefaults.RotateMaxDefault, 0.0, AxisUpperBound);
+        R_Speed = Clamp(state.R_Speed ?? MotionDefaults.RotateSpeedDefault, MotionDefaults.RotateSpeedMin, MotionDefaults.RotateSpeedMax);
+
+        if (!string.IsNullOrWhiteSpace(state.SelectedPort))
+        {
+            SelectedPort = _portNames.Contains(state.SelectedPort, StringComparer.OrdinalIgnoreCase)
+                ? state.SelectedPort
+                : _portNames.FirstOrDefault();
+            return;
+        }
+
+        SelectedPort = _portNames.FirstOrDefault();
     }
 }

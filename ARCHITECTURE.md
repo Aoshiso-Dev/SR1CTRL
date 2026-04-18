@@ -19,6 +19,7 @@
 
 - `SR1CTRL.Infrastructure`
   - SerialPort and COM port adapter implementations.
+  - App state persistence implementation (`IAppStateStore` -> `app-state.json` in exe folder).
   - Depends on `SR1CTRL.Application` abstractions.
   - Exposes DI entrypoint: `AddInfrastructure()`.
 
