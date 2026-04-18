@@ -3,6 +3,7 @@
 ## 概要
 
 タグ `v*` を push すると GitHub Actions が `Release` ビルドを実行し、`SR1CTRL-<tag>-win-x64.zip` を GitHub Release に自動添付します。
+ZIP には `SR1CTRL.exe` と依存する `*.dll` を含む publish 出力一式が入ります。
 
 ## 事前準備
 
