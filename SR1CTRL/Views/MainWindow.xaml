@@ -1,0 +1,65 @@
+﻿<Window x:Class="SR1CTRL.Views.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="SR1CTRL" Width="540" Height="740">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="12">
+
+            <TextBlock Text="Connection" FontWeight="Bold"/>
+            <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                <ComboBox Width="160" ItemsSource="{Binding PortNames}" SelectedItem="{Binding SelectedPort}"/>
+                <TextBox Width="90" Margin="8,0,0,0" Text="{Binding BaudRate}"/>
+                <Button Content="Refresh" Margin="8,0,0,0" Command="{Binding RefreshPortListCommand}"/>
+            </StackPanel>
+
+            <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                <Button Content="Connect" Command="{Binding ConnectCommand}"
+                IsEnabled="{Binding IsConnected, Converter={StaticResource InverseBoolConverter}}"/>
+                <Button Content="Disconnect" Margin="8,0,0,0" Command="{Binding DisconnectCommand}"
+                IsEnabled="{Binding IsConnected}"/>
+                <Button Content="D0/D1/D2" Margin="8,0,0,0" Command="{Binding QueryDeviceInfoCommand}"
+                IsEnabled="{Binding IsConnected}"/>
+            </StackPanel>
+
+            <Separator Margin="0,12,0,12"/>
+
+            <TextBlock Text="Device (D0)" FontWeight="Bold"/>
+            <TextBox Text="{Binding D0Text}" IsReadOnly="True" TextWrapping="Wrap" MinHeight="24"/>
+
+            <TextBlock Text="TCode Version (D1)" FontWeight="Bold" Margin="0,8,0,0"/>
+            <TextBox Text="{Binding D1Text}" IsReadOnly="True" TextWrapping="Wrap" MinHeight="24"/>
+
+            <TextBlock Text="Axes (D2)" FontWeight="Bold" Margin="0,8,0,0"/>
+            <TextBox Text="{Binding D2Text}" IsReadOnly="True" TextWrapping="Wrap" AcceptsReturn="True" MinHeight="90"/>
+
+            <Separator Margin="0,12,0,12"/>
+
+            <TextBlock Text="Motion" FontWeight="Bold"/>
+            <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                <Button Content="Start" Command="{Binding StartCommand}" IsEnabled="{Binding IsConnected}"/>
+                <Button Content="Stop" Margin="8,0,0,0" Command="{Binding StopCommand}" IsEnabled="{Binding IsConnected}"/>
+            </StackPanel>
+
+            <Separator Margin="0,12,0,12"/>
+
+            <TextBlock Text="Linear (L0)" FontWeight="Bold"/>
+            <TextBlock Text="{Binding L_Speed, StringFormat=Speed: {0:F3} /s}"/>
+            <Slider Minimum="{Binding LinearSpeedMin}" Maximum="{Binding LinearSpeedMax}" Value="{Binding L_Speed, UpdateSourceTrigger=PropertyChanged}"/>
+            <TextBlock Text="{Binding L_Min, StringFormat=Min: {0:F2}}"/>
+            <Slider Minimum="0" Maximum="0.99" Value="{Binding L_Min, UpdateSourceTrigger=PropertyChanged}"/>
+            <TextBlock Text="{Binding L_Max, StringFormat=Max: {0:F2}}"/>
+            <Slider Minimum="0" Maximum="0.99" Value="{Binding L_Max, UpdateSourceTrigger=PropertyChanged}"/>
+
+            <Separator Margin="0,12,0,12"/>
+
+            <TextBlock Text="Rotate (R0)" FontWeight="Bold"/>
+            <TextBlock Text="{Binding R_Speed, StringFormat=Speed: {0:F3} /s}"/>
+            <Slider Minimum="{Binding RotateSpeedMin}" Maximum="{Binding RotateSpeedMax}" Value="{Binding R_Speed, UpdateSourceTrigger=PropertyChanged}"/>
+            <TextBlock Text="{Binding R_Min, StringFormat=Min: {0:F2}}"/>
+            <Slider Minimum="0" Maximum="0.99" Value="{Binding R_Min, UpdateSourceTrigger=PropertyChanged}"/>
+            <TextBlock Text="{Binding R_Max, StringFormat=Max: {0:F2}}"/>
+            <Slider Minimum="0" Maximum="0.99" Value="{Binding R_Max, UpdateSourceTrigger=PropertyChanged}"/>
+
+        </StackPanel>
+    </ScrollViewer>
+</Window>

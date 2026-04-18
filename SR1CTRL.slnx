@@ -1,0 +1,7 @@
+﻿<Solution>
+  <Project Path="SR1CTRL.Domain/SR1CTRL.Domain.csproj" />
+  <Project Path="SR1CTRL.Application/SR1CTRL.Application.csproj" />
+  <Project Path="SR1CTRL.Infrastructure/SR1CTRL.Infrastructure.csproj" />
+  <Project Path="SR1CTRL/SR1CTRL.csproj" />
+  <Project Path="SR1CTRL.Application.Tests/SR1CTRL.Application.Tests.csproj" />
+</Solution>
