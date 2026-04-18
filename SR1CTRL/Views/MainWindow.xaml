@@ -161,10 +161,6 @@
                             Margin="8,0,0,0"
                             Content="Hotkey Settings"
                             Click="OpenHotkeySettingsButton_Click"/>
-                    <Button Style="{StaticResource ActionButtonStyle}"
-                            Margin="8,0,0,0"
-                            Content="HID Diagnostic"
-                            Click="OpenHidDiagnosticButton_Click"/>
                 </WrapPanel>
             </StackPanel>
         </Border>
@@ -174,7 +170,6 @@
                 IsEnabled="{Binding IsConnected}">
             <StackPanel>
                 <DockPanel Margin="0,0,0,8">
-                    <TextBlock Text="Global Motion Control" Style="{StaticResource SectionTitleStyle}" Margin="0"/>
                     <StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
                         <Button Style="{StaticResource ActionButtonStyle}"
                                 Content="Start"
@@ -187,7 +182,7 @@
                                 IsEnabled="{Binding IsConnected}"/>
                     </StackPanel>
                 </DockPanel>
-                <TextBlock Text="Linear / Rotate は下のカードで調整できます。"
+                <TextBlock Text="Adjust Linear / Rotate in the cards below."
                            Foreground="{StaticResource Brush.TextMuted}"/>
             </StackPanel>
         </Border>

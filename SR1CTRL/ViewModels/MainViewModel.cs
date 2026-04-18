@@ -95,14 +95,14 @@ public partial class MainViewModel : ObservableObject
     public string RotateSpeedDownHotkeyText => RotateSpeedDownHotkey.ToString();
     public string RotateSpeedUpHotkeyText => RotateSpeedUpHotkey.ToString();
     public ReadOnlyObservableCollection<string> HidDiagnosticEntries { get; }
-    public string HidDiagnosticButtonText => IsHidDiagnosticEnabled ? "HID診断停止" : "HID診断開始";
+    public string HidDiagnosticButtonText => IsHidDiagnosticEnabled ? "Stop HID Diagnostics" : "Start HID Diagnostics";
     public string HidDiagnosticSummary => string.IsNullOrWhiteSpace(_hotkeyDeviceName)
-        ? "対象デバイス未バインド: 診断開始後にマクロキーボードのキー/ノブを操作してください。"
-        : $"対象デバイス: {_hotkeyDeviceName}";
+        ? "No bound target device. Start diagnostics and operate a macro keyboard key/knob."
+        : $"Target device: {_hotkeyDeviceName}";
     public bool IsHotkeyCaptureActive => ListeningHotkeyAction.HasValue;
     public string HotkeyCaptureStatus => ListeningHotkeyAction is null
-        ? "入力待ちは停止中です。"
-        : $"入力待ち中: {GetHotkeyActionLabel(ListeningHotkeyAction.Value)}";
+        ? "Input capture is idle."
+        : $"Waiting for input: {GetHotkeyActionLabel(ListeningHotkeyAction.Value)}";
 
     partial void OnL_MinChanged(double value) => ApplyLinear();
     partial void OnL_MaxChanged(double value) => ApplyLinear();
@@ -125,7 +125,7 @@ public partial class MainViewModel : ObservableObject
     partial void OnIsHidDiagnosticEnabledChanged(bool value)
     {
         OnPropertyChanged(nameof(HidDiagnosticButtonText));
-        SetStatus(value ? "HID診断を開始しました" : "HID診断を停止しました");
+        SetStatus(value ? "HID diagnostics started." : "HID diagnostics stopped.");
     }
 
     [RelayCommand]
@@ -146,14 +146,14 @@ public partial class MainViewModel : ObservableObject
         }
 
         ListeningHotkeyAction = action;
-        SetStatus($"入力待ち開始: {GetHotkeyActionLabel(action)}");
+        SetStatus($"Input capture started: {GetHotkeyActionLabel(action)}");
     }
 
     [RelayCommand]
     private void CancelHotkeyCapture()
     {
         ListeningHotkeyAction = null;
-        SetStatus("入力待ちをキャンセルしました。");
+        SetStatus("Input capture canceled.");
     }
 
     [RelayCommand]
@@ -168,12 +168,12 @@ public partial class MainViewModel : ObservableObject
 
             if (string.IsNullOrWhiteSpace(SelectedPort))
             {
-                throw new InvalidOperationException("COMポートを選択してください。");
+                throw new InvalidOperationException("Select a COM port.");
             }
 
             if (BaudRate <= 0)
             {
-                throw new InvalidOperationException("有効なボーレートを入力してください。");
+                throw new InvalidOperationException("Enter a valid baud rate.");
             }
 
             SetStatus($"Connecting to {SelectedPort}...");
@@ -351,7 +351,7 @@ public partial class MainViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            SetError($"COMポート一覧の取得に失敗しました: {ex.Message}");
+            SetError($"Failed to load COM ports: {ex.Message}");
         }
     }
 
@@ -379,7 +379,7 @@ public partial class MainViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            SetError($"Linear設定の適用に失敗しました: {ex.Message}");
+            SetError($"Failed to apply Linear settings: {ex.Message}");
         }
     }
 
@@ -401,7 +401,7 @@ public partial class MainViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            SetError($"Rotate設定の適用に失敗しました: {ex.Message}");
+            SetError($"Failed to apply Rotate settings: {ex.Message}");
         }
     }
 
@@ -633,7 +633,7 @@ public partial class MainViewModel : ObservableObject
         AssignHotkey(targetAction, key);
         ListeningHotkeyAction = null;
         action = targetAction;
-        SetStatus($"割り当て更新: {GetHotkeyActionLabel(targetAction)} = {key}");
+        SetStatus($"Hotkey updated: {GetHotkeyActionLabel(targetAction)} = {key}");
         return true;
     }
 
@@ -675,11 +675,11 @@ public partial class MainViewModel : ObservableObject
     {
         return action switch
         {
-            HotkeyAction.StartStop => "再生/停止",
-            HotkeyAction.LinearSpeedDown => "Linear スピードDown",
-            HotkeyAction.LinearSpeedUp => "Linear スピードUp",
-            HotkeyAction.RotateSpeedDown => "Rotate スピードDown",
-            HotkeyAction.RotateSpeedUp => "Rotate スピードUp",
+            HotkeyAction.StartStop => "Start / Stop",
+            HotkeyAction.LinearSpeedDown => "Linear Speed Down",
+            HotkeyAction.LinearSpeedUp => "Linear Speed Up",
+            HotkeyAction.RotateSpeedDown => "Rotate Speed Down",
+            HotkeyAction.RotateSpeedUp => "Rotate Speed Up",
             _ => action.ToString()
         };
     }

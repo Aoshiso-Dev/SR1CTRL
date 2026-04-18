@@ -70,7 +70,7 @@ public sealed class DeviceControllerTests
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => sut.ConnectAsync("COM7", 9600, CancellationToken.None));
 
-        Assert.Contains("応答", ex.Message);
+        Assert.Contains("No response", ex.Message);
         Assert.False(sut.IsConnected);
         Assert.NotNull(factory.LastConnection);
         Assert.True(factory.LastConnection!.OpenCalled);

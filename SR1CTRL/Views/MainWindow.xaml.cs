@@ -113,7 +113,7 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Raw Input keyboard initialization failed. Hotkeys are disabled.");
-            _vm.ReportNonFatalError("ハードウェア入力の初期化に失敗しました。ホットキー機能は無効です。");
+            _vm.ReportNonFatalError("Failed to initialize hardware input. Hotkey features are disabled.");
         }
     }
 

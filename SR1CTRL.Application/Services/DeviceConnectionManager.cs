@@ -34,7 +34,7 @@ internal sealed class DeviceConnectionManager
     {
         if (string.IsNullOrWhiteSpace(portName))
         {
-            throw new InvalidOperationException("COMポートを選択してください。");
+            throw new InvalidOperationException("Select a COM port.");
         }
 
         if (IsConnected)
@@ -116,7 +116,7 @@ internal sealed class DeviceConnectionManager
             return;
         }
 
-        throw new InvalidOperationException("接続先デバイスの応答を確認できませんでした。COMポート設定と接続先を確認してください。");
+        throw new InvalidOperationException("No response from the connected device. Verify COM port settings and the target device.");
     }
 }
 

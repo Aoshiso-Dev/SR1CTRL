@@ -51,8 +51,8 @@
                 BorderThickness="1"
                 Background="{StaticResource Brush.Surface}">
             <StackPanel>
-                <TextBlock Text="機能ごとのホットキー設定" FontSize="16" FontWeight="SemiBold"/>
-                <TextBlock Text="割り当てたい機能の入力ボックスをクリックし、ノブを回す/押すと設定されます。"
+                <TextBlock Text="Hotkey Assignments" FontSize="16" FontWeight="SemiBold"/>
+                <TextBlock Text="Click an input box, then rotate/press a knob to assign the selected action."
                            Foreground="{StaticResource Brush.TextMuted}"
                            Margin="0,4,0,0"/>
                 <TextBlock Text="{Binding HotkeyCaptureStatus}"
@@ -82,7 +82,7 @@
                     <ColumnDefinition Width="3*"/>
                 </Grid.ColumnDefinitions>
 
-                <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Text="再生/停止"/>
+                <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Text="Start / Stop"/>
                 <TextBox Grid.Row="0"
                          Grid.Column="1"
                          Style="{StaticResource HotkeyInputBoxStyle}"
@@ -96,7 +96,7 @@
                          Text="{Binding StartStopHotkeyText, Mode=OneWay}"
                          GotKeyboardFocus="HotkeyInputBox_GotKeyboardFocus"/>
 
-                <TextBlock Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Text="Linear スピードDown"/>
+                <TextBlock Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Text="Linear Speed Down"/>
                 <TextBox Grid.Row="1"
                          Grid.Column="1"
                          Style="{StaticResource HotkeyInputBoxStyle}"
@@ -110,7 +110,7 @@
                          Text="{Binding LinearSpeedDownHotkeyText, Mode=OneWay}"
                          GotKeyboardFocus="HotkeyInputBox_GotKeyboardFocus"/>
 
-                <TextBlock Grid.Row="2" Grid.Column="0" VerticalAlignment="Center" Text="Linear スピードUp"/>
+                <TextBlock Grid.Row="2" Grid.Column="0" VerticalAlignment="Center" Text="Linear Speed Up"/>
                 <TextBox Grid.Row="2"
                          Grid.Column="1"
                          Style="{StaticResource HotkeyInputBoxStyle}"
@@ -124,7 +124,7 @@
                          Text="{Binding LinearSpeedUpHotkeyText, Mode=OneWay}"
                          GotKeyboardFocus="HotkeyInputBox_GotKeyboardFocus"/>
 
-                <TextBlock Grid.Row="3" Grid.Column="0" VerticalAlignment="Center" Text="Rotate スピードDown"/>
+                <TextBlock Grid.Row="3" Grid.Column="0" VerticalAlignment="Center" Text="Rotate Speed Down"/>
                 <TextBox Grid.Row="3"
                          Grid.Column="1"
                          Style="{StaticResource HotkeyInputBoxStyle}"
@@ -138,7 +138,7 @@
                          Text="{Binding RotateSpeedDownHotkeyText, Mode=OneWay}"
                          GotKeyboardFocus="HotkeyInputBox_GotKeyboardFocus"/>
 
-                <TextBlock Grid.Row="4" Grid.Column="0" VerticalAlignment="Center" Text="Rotate スピードUp"/>
+                <TextBlock Grid.Row="4" Grid.Column="0" VerticalAlignment="Center" Text="Rotate Speed Up"/>
                 <TextBox Grid.Row="4"
                          Grid.Column="1"
                          Style="{StaticResource HotkeyInputBoxStyle}"
