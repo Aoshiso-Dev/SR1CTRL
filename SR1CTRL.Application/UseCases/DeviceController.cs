@@ -10,9 +10,12 @@ public sealed class DeviceController : IDeviceController
     private readonly DeviceConnectionManager _connections;
     private readonly DeviceExecutionController _execution;
 
-    public DeviceController(ISerialConnectionFactory serialConnectionFactory)
+    public DeviceController(ISerialConnectionFactory serialConnectionFactory, TimeProvider timeProvider)
     {
-        _connections = new DeviceConnectionManager(serialConnectionFactory);
+        ArgumentNullException.ThrowIfNull(serialConnectionFactory);
+        ArgumentNullException.ThrowIfNull(timeProvider);
+
+        _connections = new DeviceConnectionManager(serialConnectionFactory, timeProvider);
         _execution = new DeviceExecutionController();
     }
 

@@ -5,11 +5,14 @@ namespace SR1CTRL.Application.Services;
 
 internal sealed class DeviceSession : IAsyncDisposable
 {
-    public DeviceSession(ISerialConnection serial)
+    public DeviceSession(ISerialConnection serial, TimeProvider timeProvider)
     {
+        ArgumentNullException.ThrowIfNull(serial);
+        ArgumentNullException.ThrowIfNull(timeProvider);
+
         Serial = serial;
-        Query = new DeviceQueryService(serial);
-        Reciprocation = new ReciprocationService(serial);
+        Query = new DeviceQueryService(serial, timeProvider);
+        Reciprocation = new ReciprocationService(serial, timeProvider);
     }
 
     public ISerialConnection Serial { get; }

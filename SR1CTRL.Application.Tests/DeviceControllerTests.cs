@@ -10,7 +10,7 @@ public sealed class DeviceControllerTests
     {
         var factory = new FakeSerialConnectionFactory();
         factory.EnqueueResponse("D0", "device");
-        var sut = new DeviceController(factory);
+        var sut = new DeviceController(factory, TimeProvider.System);
 
         await sut.ConnectAsync("COM7", 9600, CancellationToken.None);
 
@@ -35,7 +35,7 @@ public sealed class DeviceControllerTests
         factory.EnqueueResponse("D1", "tcode");
         factory.EnqueueResponse("D2", "L0\nR0");
 
-        var sut = new DeviceController(factory);
+        var sut = new DeviceController(factory, TimeProvider.System);
         await sut.ConnectAsync("COM7", 9600, CancellationToken.None);
 
         var info = await sut.QueryDeviceInfoAsync(CancellationToken.None);
@@ -50,7 +50,7 @@ public sealed class DeviceControllerTests
     {
         var factory = new FakeSerialConnectionFactory();
         factory.EnqueueResponse("D0", "device");
-        var sut = new DeviceController(factory);
+        var sut = new DeviceController(factory, TimeProvider.System);
         await sut.ConnectAsync("COM7", 9600, CancellationToken.None);
 
         await sut.StartAsync(CancellationToken.None);
@@ -66,7 +66,7 @@ public sealed class DeviceControllerTests
     public async Task ConnectAsync_WhenDeviceDoesNotRespond_ThrowsAndDisposesConnection()
     {
         var factory = new FakeSerialConnectionFactory();
-        var sut = new DeviceController(factory);
+        var sut = new DeviceController(factory, TimeProvider.System);
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => sut.ConnectAsync("COM7", 9600, CancellationToken.None));
 

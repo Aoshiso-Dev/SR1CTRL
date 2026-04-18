@@ -7,7 +7,7 @@ public sealed class AxisReciprocator
 
     private bool _towardMax = true;
 
-    public DateTime NextAtUtc { get; private set; } = DateTime.UtcNow;
+    public DateTimeOffset NextAtUtc { get; private set; } = DateTimeOffset.MinValue;
 
     public AxisReciprocator(AxisMotionSettings settings)
     {
@@ -20,11 +20,11 @@ public sealed class AxisReciprocator
 
         if (applyImmediately)
         {
-            NextAtUtc = DateTime.UtcNow;
+            NextAtUtc = DateTimeOffset.MinValue;
         }
     }
 
-    public string Reapply(DateTime nowUtc)
+    public string Reapply(DateTimeOffset nowUtc)
     {
         var oneWayMs = Settings.OneWayRampMs();
 
@@ -34,7 +34,7 @@ public sealed class AxisReciprocator
         return TCodeFormatter.AxisWithInterval(Settings, target, oneWayMs);
     }
 
-    public string Step(DateTime nowUtc)
+    public string Step(DateTimeOffset nowUtc)
     {
         var oneWayMs = Settings.OneWayRampMs();
 

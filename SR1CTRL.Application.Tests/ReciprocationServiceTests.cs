@@ -10,7 +10,7 @@ public sealed class ReciprocationServiceTests
     public async Task StartAsync_CanBeCalledMultipleTimes()
     {
         var serial = new RecordingSerialConnection();
-        var sut = new ReciprocationService(serial);
+        var sut = new ReciprocationService(serial, TimeProvider.System);
 
         await sut.StartAsync();
         await sut.StartAsync();
@@ -21,7 +21,7 @@ public sealed class ReciprocationServiceTests
     public async Task ConfigureLinear_WhileRunning_UsesLatestImmediateCommand()
     {
         var serial = new RecordingSerialConnection();
-        var sut = new ReciprocationService(serial);
+        var sut = new ReciprocationService(serial, TimeProvider.System);
 
         await sut.StartAsync();
 
@@ -39,7 +39,7 @@ public sealed class ReciprocationServiceTests
     public async Task ConfigureLinear_WhileWaiting_ReflectsImmediately()
     {
         var serial = new RecordingSerialConnection();
-        var sut = new ReciprocationService(serial);
+        var sut = new ReciprocationService(serial, TimeProvider.System);
 
         await sut.StartAsync();
         sut.ConfigureLinear(new AxisMotionSettings(AxisType.L, 0, 0.1, 0.9, 0.1), applyImmediately: true);
@@ -92,9 +92,9 @@ public sealed class ReciprocationServiceTests
 
         public async Task<bool> WaitForSentCountAsync(int expectedCount, TimeSpan timeout)
         {
-            var deadlineUtc = DateTime.UtcNow + timeout;
+            var deadlineUtc = TimeProvider.System.GetUtcNow() + timeout;
 
-            while (DateTime.UtcNow < deadlineUtc)
+            while (TimeProvider.System.GetUtcNow() < deadlineUtc)
             {
                 lock (_gate)
                 {

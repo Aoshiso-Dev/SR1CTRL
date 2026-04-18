@@ -5,13 +5,18 @@ namespace SR1CTRL.Application.Services;
 internal sealed class DeviceConnectionManager
 {
     private readonly ISerialConnectionFactory _serialConnectionFactory;
+    private readonly TimeProvider _timeProvider;
     private readonly object _gate = new();
 
     private DeviceSession? _session;
 
-    public DeviceConnectionManager(ISerialConnectionFactory serialConnectionFactory)
+    public DeviceConnectionManager(ISerialConnectionFactory serialConnectionFactory, TimeProvider timeProvider)
     {
+        ArgumentNullException.ThrowIfNull(serialConnectionFactory);
+        ArgumentNullException.ThrowIfNull(timeProvider);
+
         _serialConnectionFactory = serialConnectionFactory;
+        _timeProvider = timeProvider;
     }
 
     public bool IsConnected
@@ -42,7 +47,7 @@ internal sealed class DeviceConnectionManager
         var serial = _serialConnectionFactory.Create(portName, baudRate);
         await serial.OpenAsync().ConfigureAwait(false);
 
-        var created = new DeviceSession(serial);
+        var created = new DeviceSession(serial, _timeProvider);
         try
         {
             await EnsureDeviceRespondingAsync(created, cancellationToken).ConfigureAwait(false);

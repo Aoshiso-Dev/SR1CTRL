@@ -6,10 +6,15 @@ namespace SR1CTRL.Application.UseCases;
 public sealed class DeviceQueryService
 {
     private readonly ISerialConnection _serial;
+    private readonly TimeProvider _timeProvider;
 
-    public DeviceQueryService(ISerialConnection serial)
+    public DeviceQueryService(ISerialConnection serial, TimeProvider timeProvider)
     {
+        ArgumentNullException.ThrowIfNull(serial);
+        ArgumentNullException.ThrowIfNull(timeProvider);
+
         _serial = serial;
+        _timeProvider = timeProvider;
     }
 
     public Task<string> QueryD0Async(CancellationToken cancellationToken) => QuerySingleAsync("D0", cancellationToken);
@@ -31,8 +36,8 @@ public sealed class DeviceQueryService
         var idle = TimeSpan.FromMilliseconds(200);
         var hard = TimeSpan.FromSeconds(2);
 
-        var start = DateTime.UtcNow;
-        while (DateTime.UtcNow - start < hard)
+        var start = _timeProvider.GetUtcNow();
+        while (_timeProvider.GetUtcNow() - start < hard)
         {
             var line = await _serial.ReadLineAsync(idle, cancellationToken).ConfigureAwait(false);
             if (line is null)

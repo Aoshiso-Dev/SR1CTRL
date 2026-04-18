@@ -3,8 +3,6 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using SR1CTRL.Application;
 using SR1CTRL.Infrastructure;
-using SR1CTRL.ViewModels;
-using SR1CTRL.Views;
 using System.Windows;
 
 namespace SR1CTRL;
@@ -23,18 +21,15 @@ public partial class App
             })
             .ConfigureServices(services =>
             {
+                services.AddSingleton(TimeProvider.System);
                 services.AddApplication();
                 services.AddInfrastructure();
-
-                services.AddSingleton<MainViewModel>();
-                services.AddSingleton<MainWindow>();
+                services.AddPresentation();
+                services.AddHostedService<MainWindowHostedService>();
             })
             .Build();
 
         _host.Start();
-
-        var window = _host.Services.GetRequiredService<MainWindow>();
-        window.Show();
     }
 
     private async void OnExit(object sender, ExitEventArgs e)
@@ -44,7 +39,6 @@ public partial class App
             return;
         }
 
-        _host.Services.GetRequiredService<MainViewModel>().SaveCurrentState();
         await _host.StopAsync(TimeSpan.FromSeconds(2));
         _host.Dispose();
     }

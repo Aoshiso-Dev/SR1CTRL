@@ -6,6 +6,7 @@ namespace SR1CTRL.Application.UseCases;
 public sealed class ReciprocationService : IDisposable
 {
     private readonly ISerialConnection _serial;
+    private readonly TimeProvider _timeProvider;
     private readonly object _gate = new();
     private readonly SemaphoreSlim _wakeUpSignal = new(0, 1);
 
@@ -19,9 +20,13 @@ public sealed class ReciprocationService : IDisposable
     private string? _pendingLinearCommand;
     private string? _pendingRotateCommand;
 
-    public ReciprocationService(ISerialConnection serial)
+    public ReciprocationService(ISerialConnection serial, TimeProvider timeProvider)
     {
+        ArgumentNullException.ThrowIfNull(serial);
+        ArgumentNullException.ThrowIfNull(timeProvider);
+
         _serial = serial;
+        _timeProvider = timeProvider;
     }
 
     public void ConfigureLinear(AxisMotionSettings settings, bool applyImmediately = true)
@@ -35,7 +40,7 @@ public sealed class ReciprocationService : IDisposable
 
             if (applyImmediately && _cts is not null)
             {
-                var command = _lin.Reapply(DateTime.UtcNow);
+                var command = _lin.Reapply(_timeProvider.GetUtcNow());
                 _pendingLinearCommand = command;
                 SignalLoop();
             }
@@ -53,7 +58,7 @@ public sealed class ReciprocationService : IDisposable
 
             if (applyImmediately && _cts is not null)
             {
-                var command = _rot.Reapply(DateTime.UtcNow);
+                var command = _rot.Reapply(_timeProvider.GetUtcNow());
                 _pendingRotateCommand = command;
                 SignalLoop();
             }
@@ -178,8 +183,8 @@ public sealed class ReciprocationService : IDisposable
                 continue;
             }
 
-            var now = DateTime.UtcNow;
-            var next = DateTime.MaxValue;
+            var now = _timeProvider.GetUtcNow();
+            var next = DateTimeOffset.MaxValue;
             if (lin is not null) next = Min(next, lin.NextAtUtc);
             if (rot is not null) next = Min(next, rot.NextAtUtc);
 
@@ -189,7 +194,7 @@ public sealed class ReciprocationService : IDisposable
                 await WaitForWakeOrDelayAsync(delay, cancellationToken).ConfigureAwait(false);
             }
 
-            now = DateTime.UtcNow;
+            now = _timeProvider.GetUtcNow();
 
             string? linearCommand = null;
             string? rotateCommand = null;
@@ -250,5 +255,5 @@ public sealed class ReciprocationService : IDisposable
         }
     }
 
-    private static DateTime Min(DateTime a, DateTime b) => a <= b ? a : b;
+    private static DateTimeOffset Min(DateTimeOffset a, DateTimeOffset b) => a <= b ? a : b;
 }
