@@ -69,4 +69,9 @@ public sealed class DeviceControlUseCase
 
         _controller.ConfigureRotate(settings, applyImmediately);
     }
+
+    public void ApplyMotionProfile(MotionProfileSettings settings, bool applyImmediately = true)
+    {
+        _controller.ConfigureMotionProfile(settings, applyImmediately);
+    }
 }

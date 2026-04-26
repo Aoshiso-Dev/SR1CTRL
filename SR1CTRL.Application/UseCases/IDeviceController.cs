@@ -15,4 +15,5 @@ public interface IDeviceController
     Task StopAsync(CancellationToken cancellationToken);
     void ConfigureLinear(AxisMotionSettings settings, bool applyImmediately = true);
     void ConfigureRotate(AxisMotionSettings settings, bool applyImmediately = true);
+    void ConfigureMotionProfile(MotionProfileSettings settings, bool applyImmediately = true);
 }

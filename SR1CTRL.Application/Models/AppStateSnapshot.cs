@@ -24,5 +24,9 @@ public sealed record AppStateSnapshot
     public double? R_Max { get; init; }
 
     public double? R_Speed { get; init; }
+
+    public string? MotionProfile { get; init; }
+
+    public double? MotionIntensity { get; init; }
 }
 

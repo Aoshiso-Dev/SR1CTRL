@@ -49,6 +49,18 @@ public sealed class DeviceControlUseCaseTests
         Assert.True(fake.LastLinear!.SpeedPerSecond >= 0.0001);
     }
 
+    [Fact]
+    public void ApplyMotionProfile_ForwardsSettings()
+    {
+        var fake = new FakeDeviceController { IsConnected = true };
+        var sut = new DeviceControlUseCase(fake);
+
+        sut.ApplyMotionProfile(new MotionProfileSettings(MotionProfileKind.AccentTwist, 0.8));
+
+        Assert.Equal(MotionProfileKind.AccentTwist, fake.LastMotionProfile?.Kind);
+        Assert.Equal(0.8, fake.LastMotionProfile?.Intensity);
+    }
+
     private sealed class FakeDeviceController : IDeviceController
     {
         public bool IsConnected { get; set; }
@@ -59,6 +71,7 @@ public sealed class DeviceControlUseCaseTests
 
         public AxisMotionSettings? LastLinear { get; private set; }
         public AxisMotionSettings? LastRotate { get; private set; }
+        public MotionProfileSettings? LastMotionProfile { get; private set; }
 
         public Task ConnectAsync(string portName, int baudRate, CancellationToken cancellationToken)
         {
@@ -101,6 +114,11 @@ public sealed class DeviceControlUseCaseTests
         public void ConfigureRotate(AxisMotionSettings settings, bool applyImmediately = true)
         {
             LastRotate = settings;
+        }
+
+        public void ConfigureMotionProfile(MotionProfileSettings settings, bool applyImmediately = true)
+        {
+            LastMotionProfile = settings;
         }
     }
 }

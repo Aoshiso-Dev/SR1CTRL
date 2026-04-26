@@ -70,5 +70,10 @@ public sealed class DeviceController : IDeviceController
     {
         _execution.ConfigureRotate(_connections.TryGetSession(), settings, applyImmediately);
     }
+
+    public void ConfigureMotionProfile(MotionProfileSettings settings, bool applyImmediately = true)
+    {
+        _execution.ConfigureMotionProfile(_connections.TryGetSession(), settings, applyImmediately);
+    }
 }
 

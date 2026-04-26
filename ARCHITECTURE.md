@@ -7,6 +7,7 @@
 
 - `SR1CTRL.Domain`
   - Axis motion business rules and TCode command construction.
+  - Motion profiles define independent loop, smooth stroke, twist stroke, and accent twist behavior for Linear/Rotate coordination.
   - No dependency on other SR1CTRL projects.
 
 - `SR1CTRL.Application`
@@ -14,6 +15,7 @@
   - Depends on `SR1CTRL.Domain`.
   - Accesses serial/com-port only through abstractions.
   - Exposes DI entrypoint: `AddApplication()`.
+  - Connect verifies device reachability by retrying `D0` briefly after opening the COM port.
   - Services split responsibilities:
     - `DeviceConnectionManager` (connection/session lifecycle)
     - `DeviceExecutionController` (start/stop and motion apply)
@@ -28,6 +30,7 @@
   - UI, ViewModel, composition root.
   - Depends on `SR1CTRL.Application` and `SR1CTRL.Infrastructure`.
   - UI defaults/ranges are centralized in `Presentation/Config/MotionDefaults.cs`.
+  - Main window exposes motion profile and intensity controls; selected values are persisted to `app-state.json`.
   - Global hotkey input is handled via Windows Raw Input and bound to a physical keyboard device name (persisted in `app-state.json`).
   - Hotkey settings window allows per-function key mapping (start/stop and speed controls), including live assignment from next hardware input.
   - HID diagnostic window captures raw HID report diffs from the bound device to infer knob/button candidates.

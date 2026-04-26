@@ -12,6 +12,10 @@ public sealed class ReciprocationService : IDisposable
 
     private AxisReciprocator? _lin;
     private AxisReciprocator? _rot;
+    private CoordinatedMotionPlanner? _coordinated;
+    private AxisMotionSettings? _linearSettings;
+    private AxisMotionSettings? _rotateSettings;
+    private MotionProfileSettings _motionProfile = new(MotionProfileKind.IndependentLoop, 0.5);
 
     private CancellationTokenSource? _cts;
     private Task? _task;
@@ -19,6 +23,7 @@ public sealed class ReciprocationService : IDisposable
 
     private string? _pendingLinearCommand;
     private string? _pendingRotateCommand;
+    private string? _pendingCoordinatedCommand;
 
     public ReciprocationService(ISerialConnection serial, TimeProvider timeProvider)
     {
@@ -35,13 +40,22 @@ public sealed class ReciprocationService : IDisposable
         {
             ThrowIfDisposed();
 
-            if (_lin is null) _lin = new AxisReciprocator(settings);
-            else _lin.UpdateSettings(settings, applyImmediately);
+            _linearSettings = settings.Normalize();
+
+            if (IsCoordinatedMotion)
+            {
+                UpdateCoordinatedPlannerLocked(applyImmediately);
+                QueueCoordinatedImmediateLocked(applyImmediately);
+                return;
+            }
+
+            _coordinated = null;
+            if (_lin is null) _lin = new AxisReciprocator(_linearSettings);
+            else _lin.UpdateSettings(_linearSettings, applyImmediately);
 
             if (applyImmediately && _cts is not null)
             {
-                var command = _lin.Reapply(_timeProvider.GetUtcNow());
-                _pendingLinearCommand = command;
+                _pendingLinearCommand = _lin.Reapply(_timeProvider.GetUtcNow());
                 SignalLoop();
             }
         }
@@ -53,15 +67,47 @@ public sealed class ReciprocationService : IDisposable
         {
             ThrowIfDisposed();
 
-            if (_rot is null) _rot = new AxisReciprocator(settings);
-            else _rot.UpdateSettings(settings, applyImmediately);
+            _rotateSettings = settings.Normalize();
+
+            if (IsCoordinatedMotion)
+            {
+                UpdateCoordinatedPlannerLocked(applyImmediately);
+                QueueCoordinatedImmediateLocked(applyImmediately);
+                return;
+            }
+
+            _coordinated = null;
+            if (_rot is null) _rot = new AxisReciprocator(_rotateSettings);
+            else _rot.UpdateSettings(_rotateSettings, applyImmediately);
 
             if (applyImmediately && _cts is not null)
             {
-                var command = _rot.Reapply(_timeProvider.GetUtcNow());
-                _pendingRotateCommand = command;
+                _pendingRotateCommand = _rot.Reapply(_timeProvider.GetUtcNow());
                 SignalLoop();
             }
+        }
+    }
+
+    public void ConfigureMotionProfile(MotionProfileSettings settings, bool applyImmediately = true)
+    {
+        lock (_gate)
+        {
+            ThrowIfDisposed();
+
+            _motionProfile = settings.Normalize();
+
+            if (IsCoordinatedMotion)
+            {
+                _lin = null;
+                _rot = null;
+                UpdateCoordinatedPlannerLocked(applyImmediately);
+                QueueCoordinatedImmediateLocked(applyImmediately);
+                return;
+            }
+
+            _coordinated = null;
+            RestoreIndependentReciprocatorsLocked(applyImmediately);
+            QueueIndependentImmediateLocked(applyImmediately);
         }
     }
 
@@ -97,6 +143,7 @@ public sealed class ReciprocationService : IDisposable
 
             _pendingLinearCommand = null;
             _pendingRotateCommand = null;
+            _pendingCoordinatedCommand = null;
         }
 
         if (cts is null)
@@ -139,6 +186,7 @@ public sealed class ReciprocationService : IDisposable
             _task = null;
             _pendingLinearCommand = null;
             _pendingRotateCommand = null;
+            _pendingCoordinatedCommand = null;
         }
 
         cts?.Cancel();
@@ -150,15 +198,25 @@ public sealed class ReciprocationService : IDisposable
     {
         while (!cancellationToken.IsCancellationRequested)
         {
+            string? pendingCoordinated;
             string? pendingLinear;
             string? pendingRotate;
 
             lock (_gate)
             {
+                pendingCoordinated = _pendingCoordinatedCommand;
                 pendingLinear = _pendingLinearCommand;
                 pendingRotate = _pendingRotateCommand;
+                _pendingCoordinatedCommand = null;
                 _pendingLinearCommand = null;
                 _pendingRotateCommand = null;
+            }
+
+            if (pendingCoordinated is not null)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                await _serial.SendLineAsync(pendingCoordinated, cancellationToken).ConfigureAwait(false);
+                continue;
             }
 
             if (pendingLinear is not null || pendingRotate is not null)
@@ -171,13 +229,15 @@ public sealed class ReciprocationService : IDisposable
 
             AxisReciprocator? lin;
             AxisReciprocator? rot;
+            CoordinatedMotionPlanner? coordinated;
             lock (_gate)
             {
                 lin = _lin;
                 rot = _rot;
+                coordinated = _coordinated;
             }
 
-            if (lin is null && rot is null)
+            if (lin is null && rot is null && coordinated is null)
             {
                 await WaitForWakeOrDelayAsync(TimeSpan.FromMilliseconds(50), cancellationToken).ConfigureAwait(false);
                 continue;
@@ -187,6 +247,7 @@ public sealed class ReciprocationService : IDisposable
             var next = DateTimeOffset.MaxValue;
             if (lin is not null) next = Min(next, lin.NextAtUtc);
             if (rot is not null) next = Min(next, rot.NextAtUtc);
+            if (coordinated is not null) next = Min(next, coordinated.NextAtUtc);
 
             var delay = next - now;
             if (delay > TimeSpan.Zero)
@@ -195,6 +256,15 @@ public sealed class ReciprocationService : IDisposable
             }
 
             now = _timeProvider.GetUtcNow();
+
+            if (coordinated is not null && now >= coordinated.NextAtUtc)
+            {
+                var coordinatedLine = BuildCoordinatedCommand(coordinated.Step(now));
+
+                cancellationToken.ThrowIfCancellationRequested();
+                await _serial.SendLineAsync(coordinatedLine, cancellationToken).ConfigureAwait(false);
+                continue;
+            }
 
             string? linearCommand = null;
             string? rotateCommand = null;
@@ -245,6 +315,77 @@ public sealed class ReciprocationService : IDisposable
         return (linearCommand is not null && rotateCommand is not null)
             ? $"{linearCommand} {rotateCommand}"
             : (linearCommand ?? rotateCommand!);
+    }
+
+    private bool IsCoordinatedMotion => _motionProfile.Kind is not MotionProfileKind.IndependentLoop;
+
+    private void UpdateCoordinatedPlannerLocked(bool applyImmediately)
+    {
+        if (_linearSettings is not { } linear || _rotateSettings is not { } rotate)
+        {
+            _coordinated = null;
+            return;
+        }
+
+        if (_coordinated is null)
+        {
+            _coordinated = new CoordinatedMotionPlanner(linear, rotate, _motionProfile);
+            return;
+        }
+
+        _coordinated.Update(linear, rotate, _motionProfile, applyImmediately);
+    }
+
+    private void RestoreIndependentReciprocatorsLocked(bool applyImmediately)
+    {
+        if (_linearSettings is { } linear)
+        {
+            if (_lin is null) _lin = new AxisReciprocator(linear);
+            else _lin.UpdateSettings(linear, applyImmediately);
+        }
+
+        if (_rotateSettings is { } rotate)
+        {
+            if (_rot is null) _rot = new AxisReciprocator(rotate);
+            else _rot.UpdateSettings(rotate, applyImmediately);
+        }
+    }
+
+    private void QueueCoordinatedImmediateLocked(bool applyImmediately)
+    {
+        if (!applyImmediately || _cts is null || _coordinated is null)
+        {
+            return;
+        }
+
+        _pendingCoordinatedCommand = BuildCoordinatedCommand(_coordinated.Step(_timeProvider.GetUtcNow()));
+        _pendingLinearCommand = null;
+        _pendingRotateCommand = null;
+        SignalLoop();
+    }
+
+    private void QueueIndependentImmediateLocked(bool applyImmediately)
+    {
+        if (!applyImmediately || _cts is null)
+        {
+            return;
+        }
+
+        var now = _timeProvider.GetUtcNow();
+        _pendingCoordinatedCommand = null;
+        _pendingLinearCommand = _lin?.Reapply(now);
+        _pendingRotateCommand = _rot?.Reapply(now);
+        SignalLoop();
+    }
+
+    private static string BuildCoordinatedCommand(MotionFrame frame)
+    {
+        var linear = new AxisMotionSettings(AxisType.L, 0, 0.0, 0.0001, 1.0);
+        var rotate = new AxisMotionSettings(AxisType.R, 0, 0.0, 0.0001, 1.0);
+
+        return CombineCommands(
+            TCodeFormatter.AxisWithInterval(linear, frame.LinearTarget, frame.IntervalMs),
+            TCodeFormatter.AxisWithInterval(rotate, frame.RotateTarget, frame.IntervalMs));
     }
 
     private void ThrowIfDisposed()

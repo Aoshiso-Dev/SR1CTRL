@@ -87,7 +87,7 @@ public sealed class SerialTCodeConnection : ISerialConnection
         {
             await _lineArrived!.Task.WaitAsync(linked.Token).ConfigureAwait(false);
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
         }
 

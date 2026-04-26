@@ -4,11 +4,14 @@ using Microsoft.Extensions.Logging;
 using SR1CTRL.Application.Abstractions;
 using SR1CTRL.Application.Models;
 using SR1CTRL.Application.UseCases;
+using SR1CTRL.Domain;
 using SR1CTRL.Presentation.Config;
 using System.Collections.ObjectModel;
 using System.Windows.Input;
 
 namespace SR1CTRL.ViewModels;
+
+public sealed record MotionProfileOption(MotionProfileKind Kind, string Label);
 
 public partial class MainViewModel : ObservableObject
 {
@@ -83,11 +86,20 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private double r_Min;
     [ObservableProperty] private double r_Max;
     [ObservableProperty] private double r_Speed;
+    [ObservableProperty] private MotionProfileKind motionProfile = MotionProfileKind.IndependentLoop;
+    [ObservableProperty] private double motionIntensity = 0.65;
 
     public double LinearSpeedMin => MotionDefaults.LinearSpeedMin;
     public double LinearSpeedMax => MotionDefaults.LinearSpeedMax;
     public double RotateSpeedMin => MotionDefaults.RotateSpeedMin;
     public double RotateSpeedMax => MotionDefaults.RotateSpeedMax;
+    public IReadOnlyList<MotionProfileOption> MotionProfiles { get; } =
+    [
+        new(MotionProfileKind.IndependentLoop, "Independent Loop"),
+        new(MotionProfileKind.SmoothStroke, "Smooth Stroke"),
+        new(MotionProfileKind.TwistStroke, "Twist Stroke"),
+        new(MotionProfileKind.AccentTwist, "Accent Twist")
+    ];
     public IReadOnlyList<Key> AvailableHotkeys => _availableHotkeys;
     public string StartStopHotkeyText => StartStopHotkey.ToString();
     public string LinearSpeedDownHotkeyText => LinearSpeedDownHotkey.ToString();
@@ -111,6 +123,8 @@ public partial class MainViewModel : ObservableObject
     partial void OnR_MinChanged(double value) => ApplyRotate();
     partial void OnR_MaxChanged(double value) => ApplyRotate();
     partial void OnR_SpeedChanged(double value) => ApplyRotate();
+    partial void OnMotionProfileChanged(MotionProfileKind value) => ApplyMotionProfile();
+    partial void OnMotionIntensityChanged(double value) => ApplyMotionProfile();
     partial void OnStartStopHotkeyChanged(Key value) => OnPropertyChanged(nameof(StartStopHotkeyText));
     partial void OnLinearSpeedDownHotkeyChanged(Key value) => OnPropertyChanged(nameof(LinearSpeedDownHotkeyText));
     partial void OnLinearSpeedUpHotkeyChanged(Key value) => OnPropertyChanged(nameof(LinearSpeedUpHotkeyText));
@@ -326,7 +340,9 @@ public partial class MainViewModel : ObservableObject
                 L_Speed = L_Speed,
                 R_Min = R_Min,
                 R_Max = R_Max,
-                R_Speed = R_Speed
+                R_Speed = R_Speed,
+                MotionProfile = MotionProfile.ToString(),
+                MotionIntensity = MotionIntensity
             });
         }
         catch (Exception ex)
@@ -359,6 +375,7 @@ public partial class MainViewModel : ObservableObject
     {
         ApplyLinear();
         ApplyRotate();
+        ApplyMotionProfile();
     }
 
     private void ApplyLinear()
@@ -402,6 +419,25 @@ public partial class MainViewModel : ObservableObject
         catch (Exception ex)
         {
             SetError($"Failed to apply Rotate settings: {ex.Message}");
+        }
+    }
+
+    private void ApplyMotionProfile()
+    {
+        if (!IsConnected)
+        {
+            return;
+        }
+
+        try
+        {
+            _deviceControl.ApplyMotionProfile(new MotionProfileSettings(
+                MotionProfile,
+                Clamp(MotionIntensity, 0.0, 1.0)));
+        }
+        catch (Exception ex)
+        {
+            SetError($"Failed to apply motion profile: {ex.Message}");
         }
     }
 
@@ -574,6 +610,8 @@ public partial class MainViewModel : ObservableObject
         R_Min = Clamp(state.R_Min ?? MotionDefaults.RotateMinDefault, 0.0, AxisUpperBound);
         R_Max = Clamp(state.R_Max ?? MotionDefaults.RotateMaxDefault, 0.0, AxisUpperBound);
         R_Speed = Clamp(state.R_Speed ?? MotionDefaults.RotateSpeedDefault, MotionDefaults.RotateSpeedMin, MotionDefaults.RotateSpeedMax);
+        MotionProfile = ParseMotionProfileOrDefault(state.MotionProfile, MotionProfileKind.IndependentLoop);
+        MotionIntensity = Clamp(state.MotionIntensity ?? 0.65, 0.0, 1.0);
 
         if (!string.IsNullOrWhiteSpace(state.SelectedPort))
         {
@@ -642,6 +680,17 @@ public partial class MainViewModel : ObservableObject
         if (!string.IsNullOrWhiteSpace(value)
             && Enum.TryParse<Key>(value, true, out var parsed)
             && parsed != Key.None)
+        {
+            return parsed;
+        }
+
+        return fallback;
+    }
+
+    private static MotionProfileKind ParseMotionProfileOrDefault(string? value, MotionProfileKind fallback)
+    {
+        if (!string.IsNullOrWhiteSpace(value)
+            && Enum.TryParse<MotionProfileKind>(value, true, out var parsed))
         {
             return parsed;
         }

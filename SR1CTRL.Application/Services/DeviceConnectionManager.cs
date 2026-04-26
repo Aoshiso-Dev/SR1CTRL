@@ -105,15 +105,24 @@ internal sealed class DeviceConnectionManager
         await current.DisposeAsync().ConfigureAwait(false);
     }
 
-    private static async Task EnsureDeviceRespondingAsync(DeviceSession session, CancellationToken cancellationToken)
+    private async Task EnsureDeviceRespondingAsync(DeviceSession session, CancellationToken cancellationToken)
     {
-        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        timeoutCts.CancelAfter(TimeSpan.FromSeconds(1));
+        var deadlineUtc = _timeProvider.GetUtcNow() + TimeSpan.FromSeconds(4);
 
-        var response = await session.Query.QueryD0Async(timeoutCts.Token).ConfigureAwait(false);
-        if (!string.IsNullOrWhiteSpace(response))
+        while (_timeProvider.GetUtcNow() < deadlineUtc)
         {
-            return;
+            cancellationToken.ThrowIfCancellationRequested();
+
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeoutCts.CancelAfter(TimeSpan.FromSeconds(1));
+
+            var response = await session.Query.QueryD0Async(timeoutCts.Token).ConfigureAwait(false);
+            if (!string.IsNullOrWhiteSpace(response))
+            {
+                return;
+            }
+
+            await Task.Delay(TimeSpan.FromMilliseconds(150), cancellationToken).ConfigureAwait(false);
         }
 
         throw new InvalidOperationException("No response from the connected device. Verify COM port settings and the target device.");

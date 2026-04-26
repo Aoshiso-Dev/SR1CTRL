@@ -164,8 +164,34 @@
                                 IsEnabled="{Binding IsConnected}"/>
                     </StackPanel>
                 </DockPanel>
-                <TextBlock Text="Adjust Linear / Rotate in the cards below."
-                           Foreground="{StaticResource Brush.TextMuted}"/>
+                <Grid Margin="0,2,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="1.2*"/>
+                        <ColumnDefinition Width="1.6*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0" Margin="0,0,10,0">
+                        <TextBlock Text="Motion Profile" Style="{StaticResource LabelStyle}" Margin="0,0,0,3"/>
+                        <ComboBox ItemsSource="{Binding MotionProfiles}"
+                                  DisplayMemberPath="Label"
+                                  SelectedValuePath="Kind"
+                                  SelectedValue="{Binding MotionProfile}"
+                                  Height="32"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Margin="0,0,10,0">
+                        <TextBlock Text="{Binding MotionIntensity, StringFormat=Intensity: {0:P0}}"
+                                   Style="{StaticResource LabelStyle}"
+                                   Margin="0,0,0,3"/>
+                        <Slider Minimum="0"
+                                Maximum="1"
+                                Value="{Binding MotionIntensity, UpdateSourceTrigger=PropertyChanged}"/>
+                    </StackPanel>
+                    <TextBlock Grid.Column="2"
+                               Text="L drives stroke, R adds rotation."
+                               Foreground="{StaticResource Brush.TextMuted}"
+                               VerticalAlignment="Bottom"
+                               Margin="0,0,0,6"/>
+                </Grid>
             </StackPanel>
         </Border>
 

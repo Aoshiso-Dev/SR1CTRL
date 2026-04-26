@@ -51,6 +51,24 @@ public sealed class ReciprocationServiceTests
         await sut.StopAsync();
     }
 
+    [Fact]
+    public async Task TwistStroke_EmitsCoordinatedLinearAndRotateCommands()
+    {
+        var serial = new RecordingSerialConnection();
+        var sut = new ReciprocationService(serial, TimeProvider.System);
+
+        sut.ConfigureLinear(new AxisMotionSettings(AxisType.L, 0, 0.2, 0.8, 4.0), applyImmediately: false);
+        sut.ConfigureRotate(new AxisMotionSettings(AxisType.R, 0, 0.3, 0.7, 1.0), applyImmediately: false);
+        sut.ConfigureMotionProfile(new MotionProfileSettings(MotionProfileKind.TwistStroke, 1.0), applyImmediately: false);
+
+        await sut.StartAsync();
+        Assert.True(await serial.WaitForSentCountAsync(1, TimeSpan.FromMilliseconds(500)));
+        await sut.StopAsync();
+
+        Assert.Contains("L0", serial.SentLines[0]);
+        Assert.Contains("R0", serial.SentLines[0]);
+    }
+
     private sealed class RecordingSerialConnection : ISerialConnection
     {
         private readonly List<string> _sentLines = new();

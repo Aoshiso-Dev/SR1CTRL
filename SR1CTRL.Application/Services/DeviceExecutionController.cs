@@ -88,6 +88,11 @@ internal sealed class DeviceExecutionController
         session?.Reciprocation.ConfigureRotate(settings, applyImmediately);
     }
 
+    public void ConfigureMotionProfile(DeviceSession? session, MotionProfileSettings settings, bool applyImmediately)
+    {
+        session?.Reciprocation.ConfigureMotionProfile(settings, applyImmediately);
+    }
+
     public void ResetState()
     {
         lock (_gate)
