@@ -2,13 +2,15 @@ namespace SR1CTRL.Domain;
 
 public sealed class CoordinatedMotionPlanner
 {
-    private const int SegmentCount = 12;
+    private const int MaxSegmentCount = 8;
+    private const int MinSegmentIntervalMs = 120;
 
     private AxisMotionSettings _linear;
     private AxisMotionSettings _rotate;
     private MotionProfileSettings _profile;
     private bool _towardMax = true;
     private int _segmentIndex;
+    private int _segmentCount;
 
     public CoordinatedMotionPlanner(
         AxisMotionSettings linear,
@@ -18,6 +20,7 @@ public sealed class CoordinatedMotionPlanner
         _linear = linear.Normalize();
         _rotate = rotate.Normalize();
         _profile = profile.Normalize();
+        _segmentCount = CalculateSegmentCount(_linear.OneWayRampMs());
     }
 
     public DateTimeOffset NextAtUtc { get; private set; } = DateTimeOffset.MinValue;
@@ -31,17 +34,20 @@ public sealed class CoordinatedMotionPlanner
         _linear = linear.Normalize();
         _rotate = rotate.Normalize();
         _profile = profile.Normalize();
+        _segmentCount = CalculateSegmentCount(_linear.OneWayRampMs());
+        _segmentIndex = Math.Min(_segmentIndex, _segmentCount - 1);
 
         if (applyImmediately)
         {
             NextAtUtc = DateTimeOffset.MinValue;
+            _segmentIndex = 0;
         }
     }
 
     public MotionFrame Step(DateTimeOffset nowUtc)
     {
-        var intervalMs = SegmentIntervalMs(_linear.OneWayRampMs());
-        var t = (double)(_segmentIndex + 1) / SegmentCount;
+        var intervalMs = SegmentIntervalMs(_linear.OneWayRampMs(), _segmentCount);
+        var t = (double)(_segmentIndex + 1) / _segmentCount;
         var linearProgress = EaseInOut(t, _profile.Intensity);
         var rotateProgress = RotateProgress(t);
 
@@ -49,7 +55,7 @@ public sealed class CoordinatedMotionPlanner
         var rotateTarget = TargetForProgress(_rotate, rotateProgress);
 
         _segmentIndex++;
-        if (_segmentIndex >= SegmentCount)
+        if (_segmentIndex >= _segmentCount)
         {
             _segmentIndex = 0;
             _towardMax = !_towardMax;
@@ -76,9 +82,15 @@ public sealed class CoordinatedMotionPlanner
         return start + ((end - start) * progress);
     }
 
-    private static int SegmentIntervalMs(int oneWayRampMs)
+    private static int CalculateSegmentCount(int oneWayRampMs)
     {
-        return Math.Max(1, (int)Math.Round(oneWayRampMs / (double)SegmentCount, MidpointRounding.AwayFromZero));
+        var count = (int)Math.Floor(oneWayRampMs / (double)MinSegmentIntervalMs);
+        return Math.Clamp(count, 1, MaxSegmentCount);
+    }
+
+    private static int SegmentIntervalMs(int oneWayRampMs, int segmentCount)
+    {
+        return Math.Max(1, (int)Math.Round(oneWayRampMs / (double)segmentCount, MidpointRounding.AwayFromZero));
     }
 
     private static double EaseInOut(double t, double intensity)

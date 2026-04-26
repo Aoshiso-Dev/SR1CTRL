@@ -8,6 +8,7 @@
 - `SR1CTRL.Domain`
   - Axis motion business rules and TCode command construction.
   - Motion profiles define independent loop, smooth stroke, twist stroke, and accent twist behavior for Linear/Rotate coordination.
+  - Coordinated profiles adapt command spacing to avoid flooding short-interval movement commands.
   - No dependency on other SR1CTRL projects.
 
 - `SR1CTRL.Application`
