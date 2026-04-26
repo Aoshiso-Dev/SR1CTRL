@@ -29,6 +29,9 @@ public partial class MainViewModel : ObservableObject
     private readonly SemaphoreSlim _operationLock = new(1, 1);
     private readonly object _operationCtsGate = new();
     private CancellationTokenSource? _activeOperationCts;
+    private bool _isApplyingMaxSpeed;
+    private double? _maxSpeedRestoreLinear;
+    private double? _maxSpeedRestoreRotate;
 
     public MainViewModel(
         IComPortProvider ports,
@@ -57,6 +60,7 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private bool isConnected;
     [ObservableProperty] private bool isRunning;
     [ObservableProperty] private bool isBusy;
+    [ObservableProperty] private bool isMaxSpeedEnabled;
 
     [ObservableProperty] private string d0Text = string.Empty;
     [ObservableProperty] private string d1Text = string.Empty;
@@ -115,16 +119,26 @@ public partial class MainViewModel : ObservableObject
     public string HotkeyCaptureStatus => ListeningHotkeyAction is null
         ? "Input capture is idle."
         : $"Waiting for input: {GetHotkeyActionLabel(ListeningHotkeyAction.Value)}";
+    public string MaxSpeedButtonText => IsMaxSpeedEnabled ? "Max Speed On" : "Max Speed";
 
     partial void OnL_MinChanged(double value) => ApplyLinear();
     partial void OnL_MaxChanged(double value) => ApplyLinear();
-    partial void OnL_SpeedChanged(double value) => ApplyLinear();
+    partial void OnL_SpeedChanged(double value)
+    {
+        ApplyLinear();
+        SyncMaxSpeedStateFromManualChange();
+    }
 
     partial void OnR_MinChanged(double value) => ApplyRotate();
     partial void OnR_MaxChanged(double value) => ApplyRotate();
-    partial void OnR_SpeedChanged(double value) => ApplyRotate();
+    partial void OnR_SpeedChanged(double value)
+    {
+        ApplyRotate();
+        SyncMaxSpeedStateFromManualChange();
+    }
     partial void OnMotionProfileChanged(MotionProfileKind value) => ApplyMotionProfile();
     partial void OnMotionIntensityChanged(double value) => ApplyMotionProfile();
+    partial void OnIsMaxSpeedEnabledChanged(bool value) => OnPropertyChanged(nameof(MaxSpeedButtonText));
     partial void OnStartStopHotkeyChanged(Key value) => OnPropertyChanged(nameof(StartStopHotkeyText));
     partial void OnLinearSpeedDownHotkeyChanged(Key value) => OnPropertyChanged(nameof(LinearSpeedDownHotkeyText));
     partial void OnLinearSpeedUpHotkeyChanged(Key value) => OnPropertyChanged(nameof(LinearSpeedUpHotkeyText));
@@ -290,6 +304,100 @@ public partial class MainViewModel : ObservableObject
     public void RSpeedDown(double step = MotionDefaults.RotateSpeedStep)
     {
         R_Speed = Math.Max(MotionDefaults.RotateSpeedMin, R_Speed - step);
+    }
+
+    [RelayCommand]
+    private void MaxSpeed()
+    {
+        if (IsMaxSpeedEnabled)
+        {
+            DisableMaxSpeed(restorePreviousSpeeds: true);
+            return;
+        }
+
+        EnableMaxSpeed();
+    }
+
+    public void EnableMaxSpeed()
+    {
+        if (IsMaxSpeedEnabled)
+        {
+            SetStatus("Max speed is already on");
+            return;
+        }
+
+        _maxSpeedRestoreLinear = L_Speed;
+        _maxSpeedRestoreRotate = R_Speed;
+        _isApplyingMaxSpeed = true;
+        try
+        {
+            IsMaxSpeedEnabled = true;
+            L_Speed = MotionDefaults.LinearSpeedMax;
+            R_Speed = MotionDefaults.RotateSpeedMax;
+        }
+        finally
+        {
+            _isApplyingMaxSpeed = false;
+        }
+
+        SetStatus("Max speed on");
+    }
+
+    private void DisableMaxSpeed(bool restorePreviousSpeeds)
+    {
+        var restoreLinear = _maxSpeedRestoreLinear;
+        var restoreRotate = _maxSpeedRestoreRotate;
+
+        _isApplyingMaxSpeed = true;
+        try
+        {
+            IsMaxSpeedEnabled = false;
+            if (restorePreviousSpeeds)
+            {
+                if (restoreLinear.HasValue)
+                {
+                    L_Speed = Clamp(restoreLinear.Value, MotionDefaults.LinearSpeedMin, MotionDefaults.LinearSpeedMax);
+                }
+
+                if (restoreRotate.HasValue)
+                {
+                    R_Speed = Clamp(restoreRotate.Value, MotionDefaults.RotateSpeedMin, MotionDefaults.RotateSpeedMax);
+                }
+            }
+        }
+        finally
+        {
+            _isApplyingMaxSpeed = false;
+        }
+
+        _maxSpeedRestoreLinear = null;
+        _maxSpeedRestoreRotate = null;
+        SetStatus("Max speed off");
+    }
+
+    private void SyncMaxSpeedStateFromManualChange()
+    {
+        if (_isApplyingMaxSpeed || !IsMaxSpeedEnabled)
+        {
+            return;
+        }
+
+        if (L_Speed == MotionDefaults.LinearSpeedMax && R_Speed == MotionDefaults.RotateSpeedMax)
+        {
+            return;
+        }
+
+        _maxSpeedRestoreLinear = null;
+        _maxSpeedRestoreRotate = null;
+        _isApplyingMaxSpeed = true;
+        try
+        {
+            IsMaxSpeedEnabled = false;
+        }
+        finally
+        {
+            _isApplyingMaxSpeed = false;
+        }
     }
 
     public void ReportNonFatalError(string message)

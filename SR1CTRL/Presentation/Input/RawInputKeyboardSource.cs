@@ -108,18 +108,17 @@ public sealed class RawInputKeyboardSource : IDisposable
 
         var keyboardPtr = nint.Add(buffer, Marshal.SizeOf<RawInputHeader>());
         var keyboard = Marshal.PtrToStructure<RawKeyboard>(keyboardPtr);
-        if ((keyboard.Flags & RiKeyBreak) != 0)
-        {
-            return false;
-        }
-
         var key = KeyInterop.KeyFromVirtualKey(keyboard.VirtualKey);
         if (key == Key.None)
         {
             return false;
         }
 
-        inputEvent = RawInputEvent.FromKeyboard(new RawKeyboardInput(key, keyboard.VirtualKey, deviceName));
+        inputEvent = RawInputEvent.FromKeyboard(new RawKeyboardInput(
+            key,
+            keyboard.VirtualKey,
+            deviceName,
+            IsKeyDown: (keyboard.Flags & RiKeyBreak) == 0));
         return true;
     }
 
@@ -273,7 +272,7 @@ public readonly record struct RawInputEvent(RawInputKind Kind, RawKeyboardInput 
     public static RawInputEvent FromHid(RawHidInput hid) => new(RawInputKind.Hid, default, hid);
 }
 
-public readonly record struct RawKeyboardInput(Key Key, ushort VirtualKey, string DeviceName);
+public readonly record struct RawKeyboardInput(Key Key, ushort VirtualKey, string DeviceName, bool IsKeyDown);
 
 public readonly record struct RawHidInput(string DeviceName, byte[] Data, int ReportSize, int ReportCount);
 

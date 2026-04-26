@@ -42,6 +42,15 @@
             <Setter Property="Padding" Value="16,0"/>
             <Setter Property="FontSize" Value="14"/>
         </Style>
+
+        <Style x:Key="MaxSpeedButtonStyle" TargetType="Button" BasedOn="{StaticResource ActionButtonStyle}">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsMaxSpeedEnabled}" Value="True">
+                    <Setter Property="Background" Value="#7C2D12"/>
+                    <Setter Property="BorderBrush" Value="{StaticResource Brush.Warning}"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
     </Window.Resources>
 
     <Grid Margin="12" IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBoolConverter}}">
@@ -153,7 +162,12 @@
             <StackPanel>
                 <DockPanel Margin="0,0,0,8">
                     <StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
+                        <Button Style="{StaticResource MaxSpeedButtonStyle}"
+                                Content="{Binding MaxSpeedButtonText}"
+                                Command="{Binding MaxSpeedCommand}"
+                                IsEnabled="{Binding IsConnected}"/>
                         <Button Style="{StaticResource ActionButtonStyle}"
+                                Margin="8,0,0,0"
                                 Content="Start"
                                 Command="{Binding StartCommand}"
                                 IsEnabled="{Binding IsConnected}"/>
@@ -173,10 +187,15 @@
                     <StackPanel Grid.Column="0" Margin="0,0,10,0">
                         <TextBlock Text="Motion Profile" Style="{StaticResource LabelStyle}" Margin="0,0,0,3"/>
                         <ComboBox ItemsSource="{Binding MotionProfiles}"
-                                  DisplayMemberPath="Label"
                                   SelectedValuePath="Kind"
                                   SelectedValue="{Binding MotionProfile}"
-                                  Height="32"/>
+                                  Height="32">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Label}"/>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
                     </StackPanel>
                     <StackPanel Grid.Column="1" Margin="0,0,10,0">
                         <TextBlock Text="{Binding MotionIntensity, StringFormat=Intensity: {0:P0}}"

@@ -11,6 +11,7 @@ namespace SR1CTRL.Views;
 public partial class MainWindow : Window
 {
     private static readonly TimeProvider AppTimeProvider = TimeProvider.System;
+    private static readonly TimeSpan StartStopLongPressThreshold = TimeSpan.FromMilliseconds(650);
 
     private readonly MainViewModel _vm;
     private readonly ILogger<MainWindow> _logger;
@@ -23,6 +24,8 @@ public partial class MainWindow : Window
     private DeviceInfoWindow? _deviceInfoWindow;
     private HotkeySettingsWindow? _hotkeySettingsWindow;
     private HidDiagnosticWindow? _hidDiagnosticWindow;
+    private CancellationTokenSource? _startStopPressCts;
+    private bool _startStopLongPressHandled;
 
     public MainWindow(MainViewModel vm, ILogger<MainWindow> logger)
     {
@@ -145,7 +148,7 @@ public partial class MainWindow : Window
         {
             var now = AppTimeProvider.GetLocalNow();
             _vm.AddHidDiagnosticEntry(
-                $"{now:HH:mm:ss.fff} keyboard key={keyInput.Key} vk=0x{keyInput.VirtualKey:X2} device={keyInput.DeviceName}");
+                $"{now:HH:mm:ss.fff} keyboard key={keyInput.Key} state={(keyInput.IsKeyDown ? "down" : "up")} vk=0x{keyInput.VirtualKey:X2} device={keyInput.DeviceName}");
         }
 
         if (!isBoundHardware)
@@ -166,7 +169,17 @@ public partial class MainWindow : Window
             return 0;
         }
 
-        _ = Dispatcher.InvokeAsync(() => HandleHotkeyAsync(action));
+        if (action == HotkeyAction.StartStop)
+        {
+            HandleStartStopHotkeyInput(keyInput.IsKeyDown);
+            return 0;
+        }
+
+        if (keyInput.IsKeyDown)
+        {
+            _ = Dispatcher.InvokeAsync(() => HandleHotkeyAsync(action));
+        }
+
         return 0;
     }
 
@@ -266,6 +279,66 @@ public partial class MainWindow : Window
             default:
                 return Task.CompletedTask;
         }
+    }
+
+    private void HandleStartStopHotkeyInput(bool isKeyDown)
+    {
+        if (!_vm.IsConnected)
+        {
+            return;
+        }
+
+        if (isKeyDown)
+        {
+            BeginStartStopHotkeyPress();
+            return;
+        }
+
+        CompleteStartStopHotkeyPress();
+    }
+
+    private void BeginStartStopHotkeyPress()
+    {
+        if (_startStopPressCts is not null)
+        {
+            return;
+        }
+
+        _startStopLongPressHandled = false;
+        var cts = new CancellationTokenSource();
+        _startStopPressCts = cts;
+        _ = Dispatcher.InvokeAsync(async () =>
+        {
+            try
+            {
+                await Task.Delay(StartStopLongPressThreshold, AppTimeProvider, cts.Token);
+                _startStopLongPressHandled = true;
+                _vm.EnableMaxSpeed();
+            }
+            catch (OperationCanceledException)
+            {
+            }
+        });
+    }
+
+    private void CompleteStartStopHotkeyPress()
+    {
+        var cts = _startStopPressCts;
+        if (cts is null)
+        {
+            return;
+        }
+
+        _startStopPressCts = null;
+        cts.Cancel();
+        cts.Dispose();
+
+        if (_startStopLongPressHandled)
+        {
+            return;
+        }
+
+        _ = Dispatcher.InvokeAsync(() => _vm.ToggleStartStopAsync());
     }
 }
 
